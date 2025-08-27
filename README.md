@@ -10,7 +10,7 @@ Get started with Rasa in the browser using GitHub Codespaces.
 2. **Set Up Environment:**
    - In the codespace, open the `.env` file from this repo and add your license key to that file.
      ```
-     RASA_PRO_LICENSE='your_rasa_pro_license_key_here'
+     RASA_LICENSE='your_rasa_license_key_here'
      ```
    - Set this environment variables by running 
      ```
