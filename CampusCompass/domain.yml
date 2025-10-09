@@ -1,0 +1,82 @@
+version: "3.1"
+
+intents:
+  - greet
+  - goodbye
+  - lost_vague
+  - lost_concrete
+  - lost_partial
+
+entities:
+  - building
+
+actions:
+  - validate_route_form
+  - action_route_summary
+
+slots:
+  origin_building:
+    type: text
+    influence_conversation: true
+    mappings:
+      # Answer already contains a building entity
+      - type: from_entity
+        entity: building
+        conditions:
+          - active_loop: route_form
+            requested_slot: origin_building
+      # No building entity is recognised so we take the raw text
+      - type: from_text
+        conditions:
+              - active_loop: route_form
+                requested_slot: origin_building
+  destination_building:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: building
+        conditions:
+          - active_loop: route_form
+            requested_slot: destination_building
+      - type: from_text
+        conditions:
+          - active_loop: route_form
+            requested_slot: destination_building
+  followup_question:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+  disambiguation_candidates:
+    type: list
+    influence_conversation: false
+    mappings:
+      - type: custom
+  disambiguation_target_slot:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+forms:
+  route_form:
+    required_slots:
+      - origin_building
+      - destination_building
+
+responses:
+  utter_greet:
+    - text: "Hi! How can I help?"
+  utter_surroundings:
+    - text: "Alright! What do you currently see around you?"
+  utter_ask_origin_building:
+    - text: "Where are you now? {followup_question}"
+  utter_ask_destination_building:
+    - text: "Where do you want to go? {followup_question}"
+  utter_goodbye:
+    - text: "Bye! 👋"
+  utter_default:
+    - text: "Got it. Can you describe it a bit more?"
+  utter_route_summary:
+    - text: "Got it: from '{origin_building}' to '{destination_building}'."

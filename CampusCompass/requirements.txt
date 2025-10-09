@@ -1,0 +1,3 @@
+# maak/aanvul requirements.txt
+openai>=1.40,<2
+python-dotenv>=1.0

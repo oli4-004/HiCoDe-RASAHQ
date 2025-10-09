@@ -1,0 +1,44 @@
+version: "3.1"
+nlu:
+- intent: greet
+  examples: |
+    - hey
+    - hi
+    - hello
+    - good morning
+
+- intent: goodbye
+  examples: |
+    - ciao
+    - goodbye
+    - later
+    - bye
+
+- intent: lost_vague
+  examples: |
+    - I don't know where I currently am
+    - I don't know where I should go
+    - I'm kind of lost, can you help?
+    - I'm currently at a station
+
+- intent: lost_partial
+  examples: |
+    - I'm at the Huygens building
+    - I'm in Erasmus
+    - I need to get to Maria Montessori
+    - I want to go to the Collegezalen Complex
+
+- intent: lost_concrete
+  examples: |
+    - I'm at the Huygens building. How do I get to Maria Montessori?
+    - I'm behind EOS. Where's the nearest entrance to Huygens?
+    - I'm in Erasmus, how do I get to Collegezalen Complex?
+
+- lookup: building
+  examples: |
+    - Huygens building
+    - Maria Montessori
+    - Erasmus
+    - EOS
+    - Collegezalen Complex
+    - Station Heyendaal
