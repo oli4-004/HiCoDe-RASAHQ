@@ -2,7 +2,7 @@ from typing import Text, Any, Dict, List
 from rasa_sdk import Tracker, FormValidationAction, Action
 from rasa_sdk.events import SlotSet
 from rasa_sdk.executor import CollectingDispatcher
-from .llmcontroller import LLMController
+from CampusCompass.llm.llmcontroller import LLMController
 
 CONFIDENCE_THRESHOLD = 0.8
 

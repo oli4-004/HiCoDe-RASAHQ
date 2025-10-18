@@ -1,0 +1,6 @@
+[
+  {
+    "name": "building",
+    "pattern": "(\\bHuygens\\ building\\b|\\bMaria\\ Montessori\\b|\\bErasmus\\b|\\bEOS\\b|\\bCollegezalen\\ Complex\\b|\\bStation\\ Heyendaal\\b)"
+  }
+]
