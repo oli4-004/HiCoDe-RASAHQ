@@ -1,7 +1,7 @@
 from typing import Text, Dict, Any, List, Optional
 import json
 from openai import OpenAI
-from CampusCompass.llm.config import OPENAI_API_KEY
+from CampusCompass.app.config import OPENAI_API_KEY
 
 class LLMController:
     """
@@ -70,11 +70,15 @@ class LLMController:
                 "normalized": None,
                 "confidence": 0.0,
                 "candidates": [],
-                "followup_question": "I am sorry, I did not understand. Could you describe again?",
+                "followup_question": (
+                    "I am sorry, I did not understand. Could you describe again?"
+                ),
             }
+
         return {
             "normalized": data.get("normalized"),
             "confidence": float(data.get("confidence", 0.0) or 0.0),
             "candidates": data.get("candidates", []) or [],
-            "followup_question": data.get("followup_question") or "I am sorry, I did not understand. Could you describe again?"
+            "followup_question": data.get("followup_question")
+                                 or "I am sorry, I did not understand. Could you describe again?",
         }
