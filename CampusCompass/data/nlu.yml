@@ -34,6 +34,13 @@ nlu:
     - I'm behind EOS. Where's the nearest entrance to Huygens?
     - I'm in Erasmus, how do I get to Collegezalen Complex?
 
+- intent: abbreviation
+  examples: | 
+   - I don't know what building "E" is?
+   - What does EOS mean? 
+   - I have a class at HG00.616, what building is that? 
+   - LIN 5, which lecture hall is that? 
+
 - lookup: building
   examples: |
     - Huygens
