@@ -36,9 +36,16 @@ nlu:
 
 - lookup: building
   examples: |
-    - Huygens building
+    - Huygens
     - Maria Montessori
     - Erasmus
-    - EOS
+    - Elinor Ostromgebouw
     - Collegezalen Complex
+    - Linnaeus
+    - Mercator I
+    - Mercator II
+    - Mercator III
+    - Spinoza
     - Station Heyendaal
+    - Universiteitsbibliotheek
+    - Maria Montessori
