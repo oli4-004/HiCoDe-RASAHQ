@@ -5,3 +5,6 @@
 __pycache__
 .pyc
 .DS_Store
+run-dev.ps1
+debug.log
+/logs

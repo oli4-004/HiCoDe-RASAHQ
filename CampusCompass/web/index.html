@@ -83,74 +83,171 @@
   </div>
 
   <script>
-    // --- minimal state
-    const FEED = document.getElementById('feed');
-    const INPUT = document.getElementById('input');
-    const SEND  = document.getElementById('send');
+      // --- DOM refs
+      const FEED = document.getElementById('feed');
+      const INPUT = document.getElementById('input');
+      const SEND  = document.getElementById('send');
 
-    const API_BASE = '/rasa'; // Caddy will strip this and proxy to Rasa (5005)
-    const RASA_REST = API_BASE + '/webhooks/rest/webhook';
+      // Detect of we lokaal dev draaien (run-dev.ps1) of live achter Caddy
+      const runningLocal = (
+        window.location.port === "5500" ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname === "::1" ||
+        window.location.hostname === "[::1]"
+      );
 
-    let senderId = localStorage.getItem('campuscompass_uid');
-    if (!senderId) {
-      senderId = 'web-' + Math.random().toString(36).slice(2) + Date.now();
-      localStorage.setItem('campuscompass_uid', senderId);
-    }
+      // Base URLs voor de bot
+      const LOCAL_API = "http://localhost:5005";                 // lokale Rasa core op je laptop
+      const PROD_API  = "/rasa";                                 // in productie via Caddy proxy
+      const VPS_API   = "https://campuscompass.egheosa.nl/rasa"; // directe fallback naar je VPS
 
-    const scrollToBottom = () => FEED.scrollTo({ top: FEED.scrollHeight, behavior: 'smooth' });
+      // Primair vs fallback:
+      // lokaal: probeer eerst localhost:5005, val dan terug op de VPS
+      // prod:   gebruik gewoon /rasa
+      let PRIMARY_BASE, FALLBACK_BASE;
+      if (runningLocal) {
+        PRIMARY_BASE  = LOCAL_API;
+        FALLBACK_BASE = PRIMARY_BASE;
+      } else {
+        PRIMARY_BASE  = PROD_API;
+        FALLBACK_BASE = PROD_API;
+      }
 
-    function bubble(role, html) {
-      const row = document.createElement('div');
-      row.className = `row ${role}`;
-      const b = document.createElement('div');
-      b.className = 'bubble';
-      b.innerHTML = html;
-      row.appendChild(b);
-      FEED.appendChild(row);
-      scrollToBottom();
-      return row;
-    }
+      console.log("[ENV] runningLocal:", runningLocal, "PRIMARY_BASE:", PRIMARY_BASE, "FALLBACK_BASE:", FALLBACK_BASE);
 
-    function typingOn() {
-      const row = document.createElement('div');
-      row.className = 'row bot';
-      const b = document.createElement('div');
-      b.className = 'bubble typing';
-      b.innerHTML = '<span></span><span></span><span></span>';
-      row.appendChild(b);
-      FEED.appendChild(row);
-      scrollToBottom();
-      return row;
-    }
+      // vaste sender id zodat Rasa een gesprek kan onthouden
+      let senderId = localStorage.getItem('campuscompass_uid');
+      if (!senderId) {
+        senderId = 'web-' + Math.random().toString(36).slice(2) + Date.now();
+        localStorage.setItem('campuscompass_uid', senderId);
+      }
 
-    function strip(s) { return (s||'').toString().replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      const scrollToBottom = () =>
+        FEED.scrollTo({ top: FEED.scrollHeight, behavior: 'smooth' });
 
-    async function sendMessage(text) {
-      if (!text) return;
-      INPUT.value = '';
-      bubble('user', strip(text));
+      function bubble(role, html) {
+        const row = document.createElement('div');
+        row.className = `row ${role}`;
 
-      const typing = typingOn();
-      try {
-        const res = await fetch(RASA_REST, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sender: senderId, message: text })
+        const b = document.createElement('div');
+        b.className = 'bubble';
+        b.innerHTML = html;
+
+        row.appendChild(b);
+        FEED.appendChild(row);
+        scrollToBottom();
+        return row;
+      }
+
+      function typingOn() {
+        const row = document.createElement('div');
+        row.className = 'row bot';
+
+        const b = document.createElement('div');
+        b.className = 'bubble typing';
+        b.innerHTML = '<span></span><span></span><span></span>';
+
+        row.appendChild(b);
+        FEED.appendChild(row);
+        scrollToBottom();
+        return row;
+      }
+
+      function strip(s) {
+        return (s || '')
+          .toString()
+          .replace(/</g,'&lt;')
+          .replace(/>/g,'&gt;');
+      }
+
+      // één request sturen naar een bepaalde baseURL
+      async function postToRasa(baseUrl, text) {
+        const rasaUrl = baseUrl + "/webhooks/rest/webhook";
+
+        console.log("[CLIENT] POST", rasaUrl, "sender", senderId);
+
+        const res = await fetch(rasaUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sender: senderId,
+            message: text
+          })
         });
+
+        console.log("[CLIENT] status:", res.status);
         const data = await res.json();
+        console.log("[CLIENT] data:", data);
+
+        return { ok: res.ok, data };
+      }
+
+      async function sendMessage(text) {
+        if (!text) return;
+
+        console.log("[CLIENT] user typed:", text);
+
+        // user bubble
+        INPUT.value = '';
+        bubble('user', strip(text));
+
+        const typing = typingOn();
+
+        let answer = null;
+        // 1. Probeer primary
+        try {
+          answer = await postToRasa(PRIMARY_BASE, text);
+          if (!answer.ok || !Array.isArray(answer.data)) {
+            throw new Error("Primary bad response");
+          }
+        } catch (errPrimary) {
+          console.warn("[CLIENT] primary failed:", errPrimary);
+
+          // 2. fallback als fallback anders is
+          if (FALLBACK_BASE !== PRIMARY_BASE) {
+            try {
+              console.log("[CLIENT] trying fallback:", FALLBACK_BASE);
+              answer = await postToRasa(FALLBACK_BASE, text);
+              if (!answer.ok || !Array.isArray(answer.data)) {
+                throw new Error("Fallback bad response");
+              }
+            } catch (errFallback) {
+              console.error("[CLIENT] fallback also failed:", errFallback);
+              typing.remove();
+              bubble('bot', '<em>Server niet bereikbaar. Controleer je verbinding.</em>');
+              return;
+            }
+          } else {
+            typing.remove();
+            bubble('bot', '<em>Server niet bereikbaar. Controleer je verbinding.</em>');
+            return;
+          }
+        }
+
         typing.remove();
 
-        if (!Array.isArray(data) || !data.length) {
+        const msgs = answer.data;
+        if (!Array.isArray(msgs) || !msgs.length) {
           bubble('bot', "<em>Hmm, ik ontving geen antwoord. Probeer het nog eens?</em>");
           return;
         }
 
-        for (const m of data) {
-          if (m.text) bubble('bot', strip(m.text));
-          if (m.image) bubble('bot', `<img src="${strip(m.image)}" alt="image" style="max-width:100%;border-radius:12px">`);
+        for (const m of msgs) {
+          if (m.text) {
+            bubble('bot', strip(m.text));
+          }
+          if (m.image) {
+            bubble(
+              'bot',
+              `<img src="${strip(m.image)}" alt="image" style="max-width:100%;border-radius:12px">`
+            );
+          }
           if (m.buttons && m.buttons.length) {
             const row = bubble('bot', '<strong>Choices</strong>');
             const wrap = document.createElement('div');
             wrap.className = 'chips';
+
             m.buttons.forEach(btn => {
               const el = document.createElement('div');
               el.className = 'chip';
@@ -158,22 +255,19 @@
               el.onclick = () => sendMessage(btn.payload || btn.title);
               wrap.appendChild(el);
             });
+
             row.querySelector('.bubble').appendChild(wrap);
           }
         }
-      } catch (e) {
-        typing.remove();
-        bubble('bot', '<em>Server niet bereikbaar. Controleer je verbinding.</em>');
       }
-    }
 
-    SEND.onclick = () => sendMessage(INPUT.value.trim());
-    INPUT.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') SEND.click();
-    });
+      SEND.onclick = () => sendMessage(INPUT.value.trim());
+      INPUT.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') SEND.click();
+      });
 
-    // Greeting
-    bubble('bot', 'Hi! 👋 Hoe kan ik je helpen op de campus?');
-  </script>
+      // Greeting bubble (UI-side only, geen echte bot call)
+      bubble('bot', 'Hi! 👋 Hoe kan ik je helpen op de campus?');
+</script>
 </body>
 </html>

@@ -6,6 +6,8 @@ intents:
   - lost_vague
   - lost_concrete
   - lost_partial
+  - abbreviation
+  - thank_you
 
 entities:
   - building
@@ -13,6 +15,7 @@ entities:
 actions:
   - validate_route_form
   - action_route_summary
+  - action_explain_abbreviation
 
 slots:
   origin_building:
@@ -71,12 +74,24 @@ responses:
   utter_surroundings:
     - text: "Alright! What do you currently see around you?"
   utter_ask_origin_building:
-    - text: "Where are you now? {followup_question}"
+    - condition:
+        - type: slot
+          name: disambiguation_target_slot
+          value: origin_building
+      text: "{followup_question}"
+    - text: "Where are you now? Describe what you see (colors, shapes, signs, platforms, bike racks, water)."
   utter_ask_destination_building:
-    - text: "Where do you want to go? {followup_question}"
+    - condition:
+        - type: slot
+          name: disambiguation_target_slot
+          value: destination_building
+      text: "{followup_question}"
+    - text: "Where do you want to go? If you’re not sure, tell me features (tower, villa in a park, platforms, lecture halls)."
   utter_goodbye:
     - text: "Bye! 👋"
   utter_default:
     - text: "Got it. Can you describe it a bit more?"
   utter_route_summary:
     - text: "Got it: from '{origin_building}' to '{destination_building}'."
+  utter_thank_you:
+    - text: "You're welcome! If there's anything else I can help you with, just let me know!"

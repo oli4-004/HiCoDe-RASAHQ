@@ -1,46 +1,75 @@
 version: "3.1"
+
 rules:
-- rule: greet back
-  steps:
-    - intent: greet
-    - action: utter_greet
+  - rule: greet back
+    steps:
+      - intent: greet
+      - action: utter_greet
 
-- rule: goodbye
-  steps:
-    - intent: goodbye
-    - action: utter_goodbye
+  - rule: goodbye
+    steps:
+      - intent: goodbye
+      - action: utter_goodbye
 
-- rule: start route form (vague)
-  steps:
-    - intent: lost_vague
-    - action: route_form
-    - active_loop: route_form
+  - rule: start route form (vague)
+    steps:
+      - intent: lost_vague
+      - action: route_form
+      - active_loop: route_form
 
-- rule: start route form (partial)
-  steps:
-    - intent: lost_partial
-    - action: route_form
-    - active_loop: route_form
+  - rule: start route form (partial)
+    steps:
+      - intent: lost_partial
+      - action: route_form
+      - active_loop: route_form
 
-- rule: start route form (concrete)
-  steps:
-    - intent: lost_concrete
-    - action: route_form
-    - active_loop: route_form
+  - rule: start route form (concrete)
+    steps:
+      - intent: lost_concrete
+      - action: route_form
+      - active_loop: route_form
 
-# Form keeps asking until all slots are filled
-- rule: route form continues
-  condition:
-    - active_loop: route_form
-  steps:
-    - action: route_form
-    - active_loop: route_form
+  - rule: route form continues
+    condition:
+      - active_loop: route_form
+    steps:
+      - action: route_form
+      - active_loop: route_form
 
-- rule: submit route form
-  condition:
-    - active_loop: route_form
-  steps:
-    - action: route_form
-    - active_loop: null
-    - action: action_route_summary
-    - action: utter_route_summary
+  # Belangrijk: eerst formulier sluiten, dan "Got it", dan de LLM-route
+  - rule: submit route form
+    condition:
+      - active_loop: route_form
+    steps:
+      - action: route_form
+      - active_loop: null
+      - action: utter_route_summary
+      - action: action_route_summary
+
+  - rule: explain abbreviation
+    steps:
+      - intent: abbreviation
+      - action: action_explain_abbreviation
+      - active_loop: null
+
+  - rule: respond to thank you
+    steps:
+      - intent: thank_you
+      - action: utter_thank_you
+      - active_loop: null
+
+  - rule: explain abbreviation during route form
+    condition:
+      - active_loop: route_form
+    steps:
+      - intent: abbreviation
+      - action: action_explain_abbreviation
+      - active_loop: null
+
+  - rule: respond to thank you during route form
+    condition:
+      - active_loop: route_form
+    steps:
+      - intent: thank_you
+      - action: utter_thank_you
+      - active_loop: null
