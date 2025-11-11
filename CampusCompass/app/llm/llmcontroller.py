@@ -3,8 +3,10 @@ from typing import Text, Dict, Any, List, Optional, Tuple
 import json
 import math
 import re
+import logging
 from openai import OpenAI
 from CampusCompass.app.config import OPENAI_API_KEY
+logger = logging.getLogger("campuscompass")
 
 # ============================================================================
 # RICH CAMPUS KNOWLEDGE BASE (Radboud University Nijmegen)
@@ -1103,3 +1105,89 @@ class LLMController:
             "candidates": clean_cands[: top_k],
             "followup_question": followup,
         }
+
+    def generate_route(self, origin: str, dest: str) -> str:
+        """
+        Generate a short walking route between two campus locations using the LLM
+        + the same campus knowledge base as normalize_building.
+
+        Behaviour:
+        - If origin/dest missing  -> ask user for both.
+        - If same building        -> say they're already there.
+        - Otherwise use OpenAI with CAMPUS_BUILDINGS as context.
+        - On any error -> deterministic generic fallback.
+        """
+        origin = (origin or "").strip()
+        dest = (dest or "").strip()
+
+        if not origin or not dest:
+            return (
+                "I’m missing either your starting point or your destination. "
+                "Tell me where you are now and where you want to go, and I’ll guide you."
+            )
+
+        if origin.lower() == dest.lower():
+            return (
+                f"You’re already at {dest}. "
+                f"Look for the nearest entrance and follow the indoor wayfinding signs."
+            )
+
+        # Safety: if om welke reden dan ook geen key/cli beschikbaar is -> nette fallback
+        if not self.api_key or not self.client:
+            return (
+                f"Walk from {origin} towards {dest} using the main campus walking and cycling paths. "
+                f"Follow the white campus signposts and the building signs for {dest}."
+            )
+
+        # Bouw compacte context payload
+        origin_info = KB_INDEX.get(origin)
+        dest_info = KB_INDEX.get(dest)
+
+        system_msg = (
+            "You are CampusCompass, a concise navigation assistant for Radboud University Nijmegen.\n"
+            "You know the campus described in `canonical_buildings`.\n"
+            "Given an origin and destination on this campus, respond ONLY with a short walking route:\n"
+            "- English only\n"
+            "- 3 to 6 numbered steps\n"
+            "- Use outdoor landmarks and building names\n"
+            "- Max 120 words total\n"
+            "- No chit-chat, no disclaimers, no meta comments."
+        )
+
+        user_payload = {
+            "origin": origin,
+            "destination": dest,
+            "origin_building": origin_info,
+            "destination_building": dest_info,
+            "instruction": "Return only the route steps."
+        }
+
+        try:
+            resp = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                temperature=0.2,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_msg
+                        + "\n\ncanonical_buildings:\n"
+                        + json.dumps(CAMPUS_BUILDINGS, ensure_ascii=False),
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps(user_payload, ensure_ascii=False),
+                    },
+                ],
+            )
+            text = (resp.choices[0].message.content or "").strip()
+            if not text:
+                raise RuntimeError("Empty route from LLM")
+            return text
+
+        except Exception as e:
+            logger.error(f"[route_llm] route generation failed: {e}")
+            return (
+                f"Walk from {origin} towards {dest} via the main campus paths and official signposts. "
+                f"Follow the {dest} signs once you are nearby."
+            )
+

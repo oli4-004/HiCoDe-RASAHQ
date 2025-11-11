@@ -179,70 +179,6 @@ class ActionRouteSummary(Action):
     def name(self) -> Text:
         return "action_route_summary"
 
-    def _generate_route_text(self, origin: str, dest: str) -> str:
-        """
-        Generate a short walking route between two campus locations.
-        Uses OpenAI if API key is available; otherwise falls back to simple heuristics.
-        """
-        if not origin or not dest:
-            return (
-                "I couldn't detect both your starting point and destination. "
-                "Tell me where you are now and where you want to go, and I'll guide you."
-            )
-
-        # Simple special-case example (nice for your demo)
-        if "Maria Montessori" in origin and "Elinor Ostrom" in dest:
-            return (
-                "From Maria Montessori, exit on the side facing the main bike path. "
-                "Turn left and follow the path past Spinoza and Grotius towards the central lecture halls (CC). "
-                "Keep going straight: the Elinor Ostrom Building (EOS) is the modern building directly next to the Lecture Hall Complex."
-            )
-
-        # If no OpenAI key: generic but usable fallback
-        if not OPENAI_API_KEY:
-            return (
-                f"Walk from {origin} following the campus wayfinding signs in the direction of {dest}. "
-                f"Stay on the main pedestrian/bike paths and follow the building signage once you're close."
-            )
-
-        # LLM-based routing
-        try:
-            client = OpenAI(api_key=OPENAI_API_KEY)
-
-            system = (
-                "You are CampusCompass, a concise navigation assistant for Radboud University Nijmegen. "
-                "Given an origin and destination building on this campus, respond in English with a clear, short "
-                "walking route of 3–6 numbered steps. Use recognizable outdoor landmarks and building names. "
-                "Stay under 120 words. Do not add extra apologies or disclaimers."
-            )
-
-            user = (
-                f"User needs to walk from '{origin}' to '{dest}' on the Radboud University Nijmegen campus. "
-                f"Give only the walking directions."
-            )
-
-            resp = client.chat.completions.create(
-                model="gpt-4o-mini",
-                temperature=0.2,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-            )
-
-            text = (resp.choices[0].message.content or "").strip()
-            if not text:
-                raise RuntimeError("Empty route from LLM")
-
-            return text
-
-        except Exception as e:
-            logger.error(f"[route_summary] LLM route generation failed: {e}")
-            return (
-                f"Walk from {origin} towards {dest} following the main campus paths and official signage. "
-                f"Once nearby, follow the building signs to the entrance of {dest}."
-            )
-
     def run(
         self,
         dispatcher: CollectingDispatcher,
@@ -250,19 +186,21 @@ class ActionRouteSummary(Action):
         domain: Dict[Text, Any],
     ) -> List[Dict[Text, Any]]:
 
-        origin = tracker.get_slot("origin_building")
-        dest = tracker.get_slot("destination_building")
+        origin = tracker.get_slot("origin_building") or ""
+        dest = tracker.get_slot("destination_building") or ""
 
         logger.info(f"[route_summary] origin={origin} dest={dest} sender={tracker.sender_id}")
 
-        route_text = self._generate_route_text(origin or "", dest or "")
+        llm = LLMController()
+        route_text = llm.generate_route(origin, dest)
 
-        # "Got it: from 'X' to 'Y'." komt uit utter_route_summary
-        # Hier doen we: route uitleg + checkvraag
+        # De rule doet al: utter_route_summary -> "Got it: from 'X' to 'Y'."
+        # Hier alleen de daadwerkelijke route + checkvraag.
         dispatcher.utter_message(text=route_text)
         dispatcher.utter_message(text="Did you manage to find it?")
 
         return []
+
 
 class ActionExplainAbbreviation(Action):
     def name(self) -> Text:
