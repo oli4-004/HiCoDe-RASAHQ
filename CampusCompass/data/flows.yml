@@ -1,0 +1,1034 @@
+version: "3.1"
+
+flows:
+  # ---------------------------------------------------------------------------
+  # DETERMINISTIC LLM-ONLY BASICS
+  # ---------------------------------------------------------------------------
+
+  greet_flow:
+    description: |
+      Handles greetings at the very start of the conversation, such as
+      "hi", "hello", "hey", "good morning", "hoi", or similar short
+      social openers.
+      Use this flow when:
+      - the user is clearly just greeting the bot, and
+      - they are not yet asking a concrete campus question
+        (no building name, abbreviation, or route request).
+      Purpose of this flow:
+      - open with a warm, short greeting as CampusCompass
+      - invite the user to ask a question about directions, abbreviations
+        or simple campus facts.
+      Do not give explanations of capabilities here; keep it light and
+      focused on welcoming the user.
+    steps:
+      - action: utter_greet
+        next: END
+
+  goodbye_flow:
+    description: |
+      Handles clear goodbyes when the user indicates that the interaction
+      is finished.
+      Typical user messages:
+      - "bye", "goodbye", "doei", "that is all", "thanks, bye"
+      - "I have to go now", "ok I am done"
+      Use this flow when the user has either:
+      - explicitly said goodbye, or
+      - implicitly signalled the end of the conversation after their
+        question is answered.
+      Behaviour:
+      - respond with a short, polite closing line
+      - do NOT ask additional follow-up questions
+      - do NOT try to start a new topic
+      This flow should be chosen instead of other flows when the central
+      intent of the message is to end the conversation.
+    steps:
+      - action: utter_goodbye
+        next: END
+
+  thanks_flow:
+    description: |
+      Handles simple expressions of gratitude that do not clearly end
+      the conversation.
+      Typical user messages:
+      - "thanks", "thank you", "dankjewel", "super, thanks"
+      - "nice, that helps", "ok great"
+      Use this flow when:
+      - the user is thanking CampusCompass for help
+      - but they have not clearly indicated that they are leaving
+        (no "bye", "that is all", etc.).
+      Behaviour:
+      - briefly acknowledge the thanks
+      - optionally offer further help with one short line such as
+        "Is there anything else I can help you with?"
+      Do not re-explain previous answers or start new topics here; just
+      keep it as a polite acknowledgement.
+    steps:
+      - action: utter_reply_thanks
+        next: END
+
+  mental_health_flow:
+    description: |
+      Handles messages where the user talks about serious mental health problems,
+      feeling very bad, or thoughts of self-harm or suicide.
+
+      Use this flow when:
+      - the user explicitly mentions suicidal thoughts, wanting to die, or not wanting to live anymore,
+      - the user describes self-harm (hurting themselves) or wanting to hurt themselves,
+      - the user says they are in crisis, cannot cope anymore, or feel completely overwhelmed,
+      - the main focus is their emotional wellbeing or safety, not a campus fact or simple exam stress.
+
+      Behaviour:
+      - Do NOT try to diagnose, give therapy, or "solve" the situation.
+      - Make clear that CampusCompass cannot support with mental health or crisis care.
+      - Encourage the user to reach out to real people and professional help.
+      - Always mention:
+        - 112 for any emergency or immediate danger.
+        - 113 Suicide Prevention (phone 113 or their website) for suicidal thoughts.
+      - End with a short, compassionate line, for example that they do not have to go
+        through this alone and that you hope things will get better.
+
+      This flow should be chosen even if the message also mentions campus or studies,
+      when there are clear crisis or self-harm signals. Safety has priority over
+      normal informational tasks.
+    steps:
+      - action: utter_mental_health_support
+        next: END
+
+  # ---------------------------------------------------------------------------
+  # CONTEXT-INCLUDED FLOWS
+  # ---------------------------------------------------------------------------
+
+  identity_flow:
+    description: |
+      Handles questions about who or what CampusCompass is, or what
+      its purpose and scope are.
+      Example user messages:
+      - "who are you?"
+      - "what are you?"
+      - "what is your purpose?"
+      - "what are you for?"
+      - "why do you exist?"
+      - "are you a student or staff?"
+      Use this flow when the user is asking about:
+      - the role, identity, or capabilities of CampusCompass
+      - what kind of questions the bot can answer
+      - how the bot relates to Radboud University.
+      Implementation details:
+      - Use the enterprise search connector via action_trigger_search
+        so the LLM can consult the role and identity knowledge
+        (for example kb_role_identity.txt and related docs).
+      - Answer briefly and clearly in one or two sentences.
+      - Emphasise that CampusCompass is a campus assistant that helps
+        with directions, abbreviations, opening hours, simple campus
+        facts, and any other factual campus information that can be
+        confidently found in the campus documents (for example food
+        options, study spots, prayer rooms, childcare, event spaces).
+      - Do NOT pretend to be a human, specific student, or staff member.
+      - Do NOT drift into general smalltalk here; keep the answer focused
+        on role and scope.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  abbreviation_flow:
+    description: |
+      Explain Radboud campus abbreviations or room codes using the
+      enterprise search connector (action_trigger_search).
+
+      Use this flow ONLY for messages where the user explicitly wants to
+      know what a specific code or abbreviation stands for, for example:
+      - "What does MM mean?"
+      - "HG00.616, what building is that?"
+      - "What is EOS?"
+      - "Can you explain this building code?"
+
+      The structure and meaning of building and room codes (MM, CC, SP,
+      GR, LIN, E, GN, TvA, COMA, COMB, EOS, etc.) are described in
+      patterns.yml under building_and_room_code_patterns. Use those
+      patterns to decide whether a short string is likely to be a real
+      building/room code or just random characters.
+
+      Two scenarios:
+
+      1) User already includes a code in the same message, for example:
+         "What does EOS mean?", "Where is HG00.616?", "Explain MM",
+         "Where is EOS?".
+         In that case, the LLM should:
+         - detect and extract the abbreviation or room code directly
+           from the user's message using the patterns in patterns.yml
+         - fill abbreviation_raw with that value
+         - answer immediately based on the docs
+         - NOT ask again for the code.
+
+      2) User asks for an abbreviation but does NOT give the code yet,
+         for example:
+         "help me with an abbreviation", "I do not know what this
+         building is called", "I need help with a room code".
+         In that case, the LLM should:
+         - ask once for the code using utter_ask_abbreviation_raw
+         - wait for the user's reply with the abbreviation
+         - fill abbreviation_raw from that reply, then answer.
+
+      Random or obviously invalid strings:
+      - If the user sends a string that does not look like a realistic
+        Radboud building or room code according to the patterns
+        (for example random letters with no known pattern), treat it as
+        unclear input instead of trying to interpret it as a valid
+        abbreviation.
+      - If you already told the user that you do not know a code and the
+        user keeps sending new random strings or variants, you should
+        NOT keep using this flow. In that case the next turn should be
+        handled by fallback_flow, not abbreviation_flow.
+
+      IMPORTANT:
+      - Do NOT choose this flow for follow-up questions about the same
+        building such as opening hours, facilities, food options, or
+        location.
+        Examples that should NOT use this flow:
+        "Until what time is it open on Thursdays?",
+        "Is there a cafeteria there?",
+        "Where can I get lunch near EOS?",
+        "How far is it from the library?"
+        Those follow-up questions belong in one of the thematic
+        search flows (for example food_and_drink_flow or
+        opening_hours_flow) or, if none fits, in pattern_search, even if
+        an abbreviation (like EOS, MM, GR) was discussed in the previous
+        turn.
+
+      After abbreviation_raw is filled, call action_trigger_search so the
+      LLM can read the building and abbreviation documents and decide
+      which building or phrase the code refers to.
+
+      In the final answer, follow this structure:
+      - First sentence: "This abbreviation stands for <full name or sentence>."
+      - Optionally add one short clarifying detail (for example which
+        faculty or type of building it is, or where it is located).
+
+      If the abbreviation cannot be found in the docs, the LLM should:
+      - clearly state that it does not know this code
+      - avoid guessing or hallucinating a building
+      - suggest checking the Radboud timetable or the campus map instead.
+
+      After answering, STOP and WAIT. Do NOT ask a follow-up question
+      unless the user comes back with thanks or a new, separate question.
+    steps:
+      - collect: abbreviation_raw
+        ask_before_filling: false
+      - action: action_trigger_search
+        next: END
+
+  food_and_drink_flow:
+    description: |
+      Handles questions about food, non-alcoholic drinks, cafés and
+      restaurants on or around campus.
+
+      Typical examples:
+      - "Where can I eat on campus?"
+      - "Is there food inside MM?"
+      - "Where can I get coffee near the library?"
+      - "What is De Refter / Cultuurcafé / Grand Café de Iris?"
+      - "Is there a café in EOS?"
+
+      Use this flow when:
+      - the main intent is about food or non-alcoholic drinks
+        (lunch, coffee, tea, snacks, restaurant, canteen),
+      - optionally combined with a building or location
+        ("food in MM", "coffee near EOS"), and
+      - the question is NOT primarily about alcohol or borrels
+        (those belong in alcohol_and_bar_flow),
+      - and NOT only about opening hours without any food context
+        (that can go to opening_hours_flow).
+
+      For all such questions:
+      - Use action_trigger_search to consult the food and
+        non-alcoholic-drinks documents, building docs and related info.
+      - Answer briefly and practically:
+        - name the relevant venue(s),
+        - say where they are located,
+        - optionally mention a key detail (e.g. self-service restaurant,
+          sandwich bar, coffee bar).
+      
+      When you mention venue names taken from the documents, do NOT keep
+      them in ALL CAPS. Convert them to normal capitalization, for example:
+      "DE REFTER" → "De Refter", "GRAND CAFE DE IRIS" → "Grand Café de Iris".
+
+      If the docs do not mention any food options for that area:
+      - say clearly you cannot find specific food places in the docs,
+      - avoid guessing or recommending off-campus places,
+      - suggest checking the Radboud website or campus map if needed.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  alcohol_and_bar_flow:
+    description: |
+      Handles questions about alcohol, bars and borrel locations on
+      campus.
+
+      Typical examples:
+      - "Where can I drink beer on campus?"
+      - "Are there student bars here?"
+      - "What is Café de Aesculaaf / 't Dappenglaasje?"
+      - "Where do study associations have borrels in Huygens?"
+      - "Can I get a beer before my exam?"
+
+      Use this flow when:
+      - the user clearly talks about alcohol, beer, wine, borrels,
+        pubs, student bars or association bars,
+      - or they mention venues that are primarily bar/borrel spaces,
+        such as Cultuurcafé in the evening, Café de Aesculaaf, 't
+        Dappenglaasje, dentistry café etc.
+
+      Behaviour:
+      - Use action_trigger_search to look up campus bar and
+        campus-bars-related documents.
+      - Mention the key campus rule that alcohol may only be served
+        after the official allowed time (for example after 15:30),
+        if relevant to the question.
+      - Clarify, when appropriate, whether a location is an open
+        campus bar or an association-only bar that is mostly used
+        during events.
+      
+      When you mention bar names taken from the documents, do NOT keep
+      them in ALL CAPS. Convert them to normal capitalization, for example:
+      "HUYGENS CANTEENS" → "Huygens Canteens".
+
+      If no bar is documented for the requested context:
+      - say that you cannot find a bar in the available documents,
+      - avoid inventing new venues,
+      - suggest checking the Radboud website or the relevant study
+        association for more details.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  study_association_flow:
+    description: |
+      Handles questions about individual study associations, their
+      board rooms, association rooms and where they are located.
+
+      Typical examples:
+      - "Where is the AI study association located?"
+      - "Where is ismus / Common Ground?"
+      - "Where can I find the law associations?"
+      - "Where is the study association for dentistry?"
+
+      Use this flow when:
+      - a specific study association is mentioned by name or clearly
+        implied (e.g. "the psychology association"),
+      - or the user asks where their study association or board room
+        is located,
+      - or they ask about the association's main room in a building
+        (for example in EOS, MM, Huygens, dentistry).
+
+      Behaviour:
+      - Use action_trigger_search to consult building docs and
+        association-related documents (e.g. EOS / MM / Huygens /
+        dentistry info).
+      - Answer with:
+        - the building name,
+        - typical floor/room or area (e.g. "basement of EOS, the
+          Ondergang", or "Common Ground in MM"),
+        - one short phrase of context if helpful (e.g. shared social
+          study space).
+
+      If the association is not in the docs:
+      - say that you cannot find that association in the knowledge base,
+      - suggest checking the programme's website or the association's
+        own channels.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  umbrella_association_flow:
+    description: |
+      Handles questions about umbrella (koepel) organisations and
+      student platforms located on campus.
+
+      Typical examples:
+      - "What is SOFv / CSN / BOS / NSSR / CODC / VOS?"
+      - "Where are the umbrella associations located?"
+      - "Where is the student union / AKKU?"
+
+      Use this flow when:
+      - the user explicitly mentions an umbrella association acronym
+        or name,
+      - or they are clearly asking about "umbrella organisations" or
+        "koepels" that represent multiple study associations.
+
+      Behaviour:
+      - Use action_trigger_search to consult EOS and umbrella-association
+        docs (e.g. De Ondergang in the EOS basement).
+      - Answer with:
+        - a short explanation of what the umbrella does (if available),
+        - where it is located (usually Ondergang / EOS or similar),
+        - very brief orientation (e.g. "basement of EOS, near the
+          association cluster").
+
+      If the umbrella or platform is not documented:
+      - say that you cannot find it in the campus docs,
+      - avoid guessing what the acronym might stand for.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  prayer_room_flow:
+    description: |
+      Handles questions about prayer rooms, quiet rooms, reflection
+      spaces and similar facilities on or near campus.
+
+      Typical examples:
+      - "Is there a prayer room on campus?"
+      - "Where can I pray as a Muslim student?"
+      - "Is there a quiet room in the library?"
+      - "Where is the meditation room?"
+
+      Use this flow when:
+      - the user talks about praying, reflection, silence, quiet
+        room, meditation space, or similar,
+      - or they mention known locations such as the Student Church,
+        UB reflection room, Transitorium prayer room, Radboudumc
+        quiet room, or MSV room in EOS.
+
+      Behaviour:
+      - Use action_trigger_search to consult the prayer-room and
+        reflection-room docs.
+      - Answer with:
+        - which prayer / quiet rooms are available,
+        - where they are located (building, floor, room),
+        - any important access or opening details if present.
+
+      If opening hours are the main focus ("what time is it open on
+      Sunday?"), you may combine this flow’s information with
+      opening_hours_flow-style behaviour, but keep the answer within
+      this single flow when possible.
+
+      If no relevant space is found:
+      - say that you cannot find a prayer or quiet room in the docs
+        for that context,
+      - avoid describing non-existent facilities.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  event_and_activity_flow:
+    description: |
+      Handles questions about event venues, performance spaces and
+      common activity locations on campus.
+
+      Typical examples:
+      - "Where is Theaterzaal C?"
+      - "Where is the Aula for my graduation?"
+      - "What is De Ondergang in EOS?"
+      - "Where do study associations usually organise events?"
+
+      Use this flow when:
+      - the user mentions named event venues such as Aula,
+        Theaterzaal C, Berchmanianum, Huize Heyendael or similar,
+      - or they talk about De Ondergang, Common Ground, or association
+        spaces primarily as event/meeting locations,
+      - or they ask where events are held if a venue is given in
+        their schedule.
+      
+      When you mention names taken from the documents, do NOT keep
+      them in ALL CAPS. Convert them to normal capitalization, for example:
+      "THEATERZAAL C" → "Theaterzaal C".
+
+      Behaviour:
+      - Use action_trigger_search to consult building and
+        event-spaces docs.
+      - Answer with:
+        - where the event venue is (building, floor/area),
+        - what it is typically used for (graduations, theatre,
+          lectures, association events),
+        - any key logistical detail if present (e.g. entrance via a
+          specific side).
+
+      If the venue is not found:
+      - say that the venue name does not appear in the docs,
+      - suggest checking the event invitation or the campus map.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  public_transport_flow:
+    description: |
+      Handles questions about public transport to, from and around
+      campus: trains, buses and nearby stops/stations.
+
+      Typical examples:
+      - "How do I get to campus by train?"
+      - "Which station is closest to Huygens / Grotius / MM?"
+      - "Is there a bus stop near the University Library?"
+      - "How do I get from Nijmegen Central to campus?"
+      - "Which bus do I take to EOS?"
+
+      Use this flow when:
+      - the user explicitly talks about trains, buses, tram, OV, public
+        transport, or NS / Arriva,
+      - or they mention stations and stops such as Nijmegen Central,
+        Nijmegen Heyendaal, Heyendaalseweg, Huygens building bus stop,
+        UMC bus stop etc.,
+      - and their main intent is: which station/stop or which general
+        route to use with public transport.
+
+      IMPORTANT:
+      - Do NOT use this flow for detailed walking directions between
+        two campus buildings (for example "how do I walk from MM to
+        Huygens?") — those should be handled by the existing route
+        / navigation flows that generate on-campus directions.
+      - Do NOT try to give live departure times or real-time delays.
+        You can only describe general lines, stops and typical routes
+        as documented.
+
+      Behaviour:
+      - Use action_trigger_search to consult campus transport
+        information and building/location docs.
+      - Answer with:
+        - the relevant station(s) or bus stop(s),
+        - the general line or direction (if documented),
+        - and one or two short sentences to orient the user
+          (for example: "From Nijmegen Central, take the train to
+          Nijmegen Heyendaal, then walk to Huygens in about 5 minutes.")
+
+      If the docs do not contain concrete public transport details
+      for that building or route:
+      - say clearly that the exact public transport connection is not
+        specified in the available information,
+      - avoid guessing line numbers or departure times,
+      - suggest checking the Dutch public transport planner (for
+        example 9292 or NS) for real-time route advice.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  opening_hours_flow:
+    description: |
+      Handles questions where the primary intent is to know WHEN a
+      building, facility or service is open or closed.
+
+      Typical examples:
+      - "When is Maria Montessori open on Tuesdays?"
+      - "What time does the library close today?"
+      - "Is EOS open on Saturday?"
+      - "Until what time is De Refter open on Thursday?"
+      - "Is the parking garage by Gymnasion 24/7?"
+
+      Use this flow when:
+      - the user clearly asks about opening or closing times,
+      - regardless of whether the facility is a building, library,
+        food venue, prayer room, parking garage, childcare or other
+        service,
+      - and the main focus is time, not description.
+
+      Behaviour:
+      - Use action_trigger_search to consult the relevant docs for
+        the named building or facility.
+      - If the user says "today", "tomorrow", "this Friday", do NOT
+        assume the actual calendar date:
+        - either answer generically by weekday (e.g. "On Fridays it
+          is open from ..."),
+        - or, if needed, ask which day they mean explicitly.
+      - Answer concisely with the known opening hours; if multiple
+        regimes exist (e.g. exam periods, weekends), make this clear
+        in one or two short sentences.
+
+      If the docs do not specify hours:
+      - say clearly that the opening hours are not specified in the
+        available information,
+      - do not invent times,
+      - suggest checking the official Radboud website or service
+        desk.
+
+      If the question is mainly about the nature of the facility
+      ("what is this place") with only a minor time remark, prefer
+      the more specific thematic flow (e.g. food_and_drink_flow,
+      study_association_flow) instead of this one.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  study_spots_flow:
+    description: |
+      Handles questions where the user's main goal is to find a place to
+      study or work quietly on campus.
+
+      Typical examples:
+      - "Where can I study on campus?"
+      - "Is there a quiet study place near MM?"
+      - "Can I study in the library, and where is it?"
+      - "Where can I work on my laptop near EOS?"
+      - "What are good places to study at Radboud?"
+
+      Use this flow when:
+      - the central intent is "I want a place to study / work",
+      - possibly combined with a building or area (MM, EOS, UB, Huygens,
+        dentistry, Radboudumc, etc.),
+      - and the focus is on suitable study spots, not only on opening
+        hours or food.
+
+      Behaviour:
+      - Use action_trigger_search to consult building docs and study-spot
+        information, such as:
+        - the University Library (UB) study areas,
+        - study floors and quiet zones in Maria Montessori and EOS,
+        - Huygens study spaces,
+        - Radboudumc study centre if present in the docs.
+      - Answer briefly and practically:
+        - name 1–3 suitable study locations,
+        - mention in which building/floor or zone they are,
+        - optionally add one short detail (e.g. "quiet zone", "group work").
+
+      If the user also implicitly asks about opening hours
+      ("Where can I study this evening?"):
+      - you may mention typical opening regimes if they are clearly
+        documented,
+      - but if the exact times are not specified, say so and recommend
+        checking the official website or timetable.
+
+      If no study places are found in the documents:
+      - say that you cannot find specific study spots for that context,
+      - avoid inventing new spaces,
+      - suggest checking the Radboud website or the campus map.
+
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  other_facilities_flow:
+    description: |
+      Handles questions about other campus facilities that are not
+      primarily food, bars, associations, prayer rooms or event
+      venues, notably childcare and parking garages.
+      
+      CHILDCARE / DAYCARE
+      
+      Typical examples:
+      - "Where is Childcare Heyendael?"
+      - "Is there a daycare on campus?"
+      - "What are the opening hours of Kinderopvang Heyendael?"
+      - "Is daycare only for staff children?"
+      
+      PARKING GARAGES / PARKING
+      
+      Typical examples:
+      - "Where can I park for Gymnasion?"
+      - "Is the parking garage near EOS 24/7?"
+      - "Which parking garage is closest to Grotius?"
+      
+      BICYCLES / BIKE PARKING (NEW)
+      
+      Typical examples:
+      - "Where can I park my bike at MM?"
+      - "Is there bike parking near the UB?"
+      - "Where is the bicycle shed by Huygens?"
+      - "Can I lock my bike somewhere near EOS?"
+      
+      Use this flow when:
+      - the user clearly asks about childcare/daycare/Kinderopvang
+        Heyendael or similar,
+      - or they ask about parking on campus, specific parking
+        garages, or where to park for a named building,
+      - or they ask about **bike parking, bicycle sheds, fietsrekken,
+        fietsenstallingen, or where to place/lock a bike for a building (NEW)**,
+      - and their main intent is facility/location/use, not bars,
+        food, or purely opening hours.
+      
+      Behaviour:
+      - Use action_trigger_search to consult childcare and parking
+        docs, and any relevant building docs for context.
+      - For childcare:
+        - explain what the facility is,
+        - who it is intended for (if available),
+        - where it is located,
+        - and only give opening hours if explicitly documented.
+      - For parking:
+        - mention the relevant garage(s),
+        - say which buildings they are close to,
+        - and describe special rules (e.g. 24/7, height limits,
+          payment rules) only if present in the docs.
+      - For bike parking:
+        - mention whether the building has nearby bike racks or a shed,
+        - describe the approximate location (e.g. front entrance, side path),
+        - only use details present in the building docs.
+      
+      If childcare or parking info is missing:
+      - say that these details are not specified in the knowledge
+        base,
+      - and recommend checking the Radboud website or mobility pages.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  # ---------------------------------------------------------------------------
+  # GENERIC CATCH-ALL SEARCH FLOW
+  # ---------------------------------------------------------------------------
+
+  pattern_search:
+    description: |
+      Handles campus-related questions that do not clearly fall into
+      any of the more specific flows such as abbreviation_flow,
+      food_and_drink_flow, alcohol_and_bar_flow, study_association_flow,
+      umbrella_association_flow, prayer_room_flow, event_and_activity_flow,
+      opening_hours_flow or other_facilities_flow.
+
+      Typical examples:
+      - factual campus questions that mix several topics at once in a
+        way that does not strongly match one thematic flow
+        ("Tell me in general what is in EOS and MM")
+      - questions about campus services that are documented but not
+        covered by the specialised flow descriptions
+        ("What happens in the Study Center Radboudumc?")
+      - other clear, factual questions about Radboud campus that can be
+        answered from the documents but do not have an obvious thematic
+        flow.
+
+      This flow ALSO handles follow-up questions that refer back to a
+      previously mentioned building or facility using pronouns or vague
+      references, for example:
+      - "How far is it from the library?"
+      - "Is there anything else there?"
+      when these do not clearly fit one specific thematic flow.
+
+      Use this flow when:
+      - the input is clearly about Radboud University campus, facilities
+        or services, and
+      - it is NOT primarily a request for a route from A to B, and
+      - it is NOT simply asking for an abbreviation meaning, and
+      - it does not clearly match one of the thematic flows above.
+
+      Implementation details:
+      - Use action_trigger_search so the LLM can look up relevant
+        documents in the campus knowledge base (including building,
+        food, bars, childcare, event spaces, and prayer-room docs).
+      - Answer briefly and clearly; users may be in a hurry.
+      - Prefer concise factual answers over long explanations.
+
+      If the docs do not contain an answer:
+      - The LLM should say explicitly that it cannot find this detail in
+        the available information.
+      - It should NOT hallucinate a random fact.
+      - It should suggest checking the Radboud University website, the
+        official campus map, or a relevant service desk for more details.
+    steps:
+      - action: action_trigger_search
+        next: END
+
+  # ---------------------------------------------------------------------------
+  # OFF-TOPIC
+  # ---------------------------------------------------------------------------
+
+  smalltalk_flow:
+    description: |
+      Handle off-topic smalltalk and light social reactions, where the
+      main purpose of the message is casual conversation rather than a
+      campus question.
+
+      Typical examples:
+      - short emotional reactions: "lol", "haha", "nice", "wow", "ok cool"
+      - social remarks: "you are funny", "I like this bot"
+      - non-campus chitchat: "how is your day", "tell me something random"
+        (as long as there is no concrete campus request in the same turn).
+
+      Use this flow only when:
+      - the message does NOT contain a clear request for directions,
+        building or room abbreviations, opening hours, or other campus facts
+      - the message is NOT primarily about the bot's identity or purpose,
+        such as "who are you" or "what can you do" (those belong in
+        identity_flow or pattern_search).
+
+      IMPORTANT:
+      - If smalltalk is mixed with a clear campus request
+        (for example "lol I am lost, how do I get to MM?"), this flow should
+        NOT be chosen; the appropriate content flow (abbreviation_flow or
+        one of the thematic flows) should handle the turn instead.
+      - smalltalk_flow itself should not answer campus questions; it only
+        provides a brief friendly chitchat-style response.
+
+      Implementation details:
+      - First, call a small LLM-driven action (action_smalltalk_llm) that
+        returns ONE short, friendly sentence which acknowledges what the
+        user said, without solving any campus task.
+      - Then, use utter_free_chitchat_response for the fixed reply that
+        politely reminds the user what CampusCompass can help with.
+      - After these two messages, STOP and WAIT.
+      - Do NOT ask a follow-up unless the user later asks a new, concrete
+        question or says thanks.
+      - Do NOT start another flow in the same turn.
+    steps:
+      - action: action_smalltalk_llm
+      - action: utter_free_chitchat_response
+        next: END
+
+
+  fallback_flow:
+    description: |
+      Handles inputs that the bot cannot reliably interpret or answer,
+      even after trying to clarify.
+
+      This flow is NOT for playful smalltalk. Use it when:
+      - the message is unclear, incomplete, or ambiguous as a campus
+        question, and
+      - it does not clearly fit identity, abbreviation, or any of the
+        thematic search flows, and
+      - it is not just off-topic chitchat (smalltalk_flow).
+
+      Typical examples for this flow include:
+      - random character sequences or noise input that do not resemble
+        any Radboud building or room code according to the patterns in
+        patterns.yml
+      - repeated unknown abbreviations or codes, especially after
+        abbreviation_flow has already answered that it does not know
+        that code
+      - questions that are clearly outside the Radboud campus domain and
+        cannot be answered from the campus knowledge base.
+
+      This flow is the core clarification and fallback logic in a simple
+      decision tree:
+      - First unclear turn -> ask for a rephrase.
+      - Second unclear turn -> ask once more for a rephrase.
+      - Third unclear turn or later -> stop asking and give a final
+        "cannot help" message.
+      Other repair patterns (such as pattern_clarification and
+      pattern_cannot_handle) should conceptually fit into this same
+      decision tree:
+      - pattern_clarification corresponds to an early "clarify what you
+        are asking" step when the intent or flow choice is ambiguous.
+      - pattern_cannot_handle corresponds to the final stage where a
+        reliable answer cannot be found after clarification and search.
+
+      Behaviour (maximum two clarification attempts, then a final fallback):
+
+      1) First unclear turn:
+         - The bot should ask once:
+           "I did not quite understand that. Can you word your question
+           in a different way?"
+         - This corresponds to utter_fallback_rephrase.
+
+      2) Second unclear turn (user rephrases, but it is still not
+         understandable or not answerable from docs):
+         - The bot may ask the same clarification once more using
+           utter_fallback_rephrase, giving the user one last chance to
+           formulate a concrete campus question.
+
+      3) Third unclear turn (after two clarification attempts, or still
+         no relevant information in the knowledge base):
+         - The bot should STOP asking for rephrases.
+         - Instead, it should politely close the topic with a message
+           like:
+           "I am sorry, it looks like I cannot help you with this issue.
+           If you are in a hurry, please refer to Google Maps or the
+           Radboud University website."
+         - This corresponds to utter_cannot_handle as the final fallback
+           utterance, which is also used by pattern_cannot_handle.
+
+      The slot fallback_attempts represents how many clarification
+      attempts have already been made in the current conversation. The
+      LLM should update this slot based on the dialogue context:
+      - 0 or unset  -> first unclear time
+      - 1           -> second unclear time
+      - 2 or more   -> final fallback
+
+      This flow is the last resort when no other flow fits and the bot
+      still cannot understand or answer the user in a campus-relevant
+      way. When EnterpriseSearchPolicy or other patterns cannot handle a
+      request, their behaviour should be aligned with this same
+      three-step clarification and final fallback pattern.
+    steps:
+      - collect: fallback_attempts
+        ask_before_filling: false
+        next:
+          - if: slots.fallback_attempts is not set or slots.fallback_attempts < 2
+            then:
+              - action: utter_fallback_rephrase
+                next: END
+          - else:
+              - action: utter_cannot_handle
+                next: END
+
+  # ---------------------------------------------------------------------------
+  # RASA DEFAULT PATTERN OVERRIDES
+  # ---------------------------------------------------------------------------
+
+  pattern_clarification:
+    description: |
+      Conversation repair flow for ambiguous requests that could match
+      multiple flows.
+      This override removes menus that list flow names. Instead, the bot
+      asks a short clarifying question in plain language, for example:
+      whether the user needs directions, an abbreviation explanation, or
+      a simple campus fact such as opening hours.
+
+      Use this flow only when the main issue is that the assistant is
+      not sure which flow (for example abbreviation_flow vs a thematic
+      search flow vs pattern_search) best fits the user message. It
+      should normally correspond to the "first clarification node" in
+      the same decision pattern as fallback_flow:
+      - If the user then clarifies their request, pick the appropriate
+        content flow and answer (for example abbreviation_flow for
+        "What does MM 01.029 mean?" or food_and_drink_flow for
+        "Where can I eat near MM?").
+      - If the user remains unclear after this clarification, subsequent
+        unclear messages should be handled by fallback_flow and the
+        fallback_attempts logic, eventually leading to the final
+        utter_cannot_handle message.
+      Do NOT use pattern_clarification repeatedly to ask the user the
+      same type of clarification question.
+    steps:
+      - action: utter_clarification_options_rasa
+        next: END
+
+  pattern_cannot_handle:
+    description: |
+      Conversation repair flow for situations where the assistant cannot
+      handle the request or cannot find a reliable answer from the
+      campus information.
+      This override responds with the general campus-specific fallback
+      message and does not show any technical details to the user.
+
+      Conceptually, this flow corresponds to the "final leaf" in the
+      same clarification decision tree used by fallback_flow:
+      - It should be used when there is no reliable answer after
+        reasonable clarification attempts, or when EnterpriseSearchPolicy
+        could not find any relevant campus information for the question.
+      - It should NOT be used as the first response to a slightly unclear
+        campus question; those should first go through either
+        pattern_clarification (for intent/flow ambiguity) or
+        fallback_flow (for unclear content) before eventually reaching
+        this final "cannot help" stage.
+    steps:
+      - action: utter_cannot_handle
+        next: END
+
+  pattern_chitchat:
+    description: |
+      Conversation repair flow for off-topic interactions that should
+      not disrupt the main conversation.
+      This override mirrors the behaviour of smalltalk_flow: it gives a
+      short, friendly response and then stops.
+      It should not be used for campus questions, but only when the user
+      is clearly engaging in casual smalltalk without a concrete campus
+      request.
+    steps:
+      - action: utter_free_chitchat_response
+        next: END
+
+  pattern_cancel_flow:
+    description: |
+      Flow that runs when a running flow is cancelled.
+      This override simply acknowledges that the previous task is
+      stopped and does not continue it.
+      It does not introduce extra clarification or fallback behaviour;
+      those are handled by fallback_flow and related patterns.
+    steps:
+      - action: action_cancel_flow
+      - action: utter_flow_cancelled_rasa
+        next: END
+
+  pattern_completed:
+    description: |
+      Flow that runs after a user-initiated use case is completed.
+      This override does not send an extra message and simply ends the
+      current turn, so the user is not repeatedly asked if they need
+      anything else.
+      The assistant can still respond to any new user message normally
+      using the appropriate flow (for example a thematic search flow or
+      pattern_search), but this pattern itself stays silent and acts
+      as a neutral end node in the decision tree.
+    steps:
+      - noop: true
+        next: END
+
+  pattern_continue_interrupted:
+    description: |
+      Conversation repair flow for when a previous flow was interrupted
+      and the system needs to know if it should continue that flow or
+      move on.
+      This override asks the user in simple terms if they want to
+      continue the earlier task. If yes, it resumes; if not, it cancels.
+      It does not change the general clarification and fallback logic,
+      which is still governed by fallback_flow and pattern_cannot_handle.
+    steps:
+      - collect: continue_interrupted_flow_confirmation
+        description: "If the user wants to continue the previous task, fill this slot with true. If not, fill it with false."
+        next:
+          - if: slots.continue_interrupted_flow_confirmation
+            then:
+              - action: action_continue_interrupted_flow
+                next: END
+          - else:
+              - action: action_cancel_interrupted_flows
+                next: END
+
+  pattern_correction:
+    description: |
+      Conversation repair flow for managing user corrections of previous
+      inputs (for example, changing a building name or code).
+      This override updates the relevant slots and briefly confirms the
+      correction.
+      It should be used when the user clearly indicates that earlier
+      information was wrong, not for general confusion or unclear
+      questions (those are handled by fallback_flow and
+      pattern_clarification).
+    steps:
+      - action: action_correct_flow_slot
+      - action: utter_corrected_previous_input
+        next: END
+
+  pattern_human_handoff:
+    description: |
+      Conversation repair flow for scenarios where a user asks to be
+      handed off to a human.
+      This override explains that a human handoff is not available and
+      offers to help further as CampusCompass instead.
+      It does not affect the general fallback decision tree; if the user
+      keeps asking for something outside the bot's scope, the behaviour
+      should still align with fallback_flow and pattern_cannot_handle.
+    steps:
+      - action: utter_human_handoff_not_available
+        next: END
+
+  pattern_internal_error:
+    description: |
+      Conversation repair flow for informing users about internal
+      errors.
+      This override gives a simple apology and suggests trying again
+      later, without exposing technical details.
+      It is separate from normal clarification behaviour: use this only
+      for real internal errors, not for misunderstood campus questions.
+    steps:
+      - action: utter_internal_error_rasa
+        next: END
+
+  pattern_repeat_bot_messages:
+    description: |
+      Conversation repair flow for repeating the last assistant messages
+      when the user indicates that they did not hear or see them.
+      This does not change the interpretation of the user's intent or
+      the fallback logic; it only repeats what was already said.
+    steps:
+      - action: action_repeat_bot_messages
+        next: END
+
+  pattern_restart:
+    description: |
+      Flow for restarting the conversation from scratch.
+      This override simply calls the restart action.
+      After a restart, the normal flow and fallback decision tree
+      (thematic flows, pattern_search, abbreviation_flow, etc.) applies
+      again from a clean state.
+    steps:
+      - action: action_restart
+        next: END
+
+  pattern_session_start:
+    description: |
+      Flow that is used to start a new conversation session.
+      This override runs the standard session start action.
+      After this, the assistant will choose between the normal flows
+      (such as greet_flow, abbreviation_flow, the thematic search flows,
+      pattern_search, and the fallback-related patterns) based on the
+      user input.
+    steps:
+      - action: action_session_start
+        next: END

@@ -16,6 +16,11 @@ $PROJECT_ROOT = Split-Path $BOT_ROOT -Parent
 $VENV_PYTHON  = Join-Path $BOT_ROOT ".venv\Scripts\python.exe"
 $VENV_RASA    = Join-Path $BOT_ROOT ".venv\Scripts\rasa.exe"
 
+# Absolute file paths
+$ENDPOINTS_PATH   = Join-Path $BOT_ROOT "endpoints.yml"
+$CREDENTIALS_PATH = Join-Path $BOT_ROOT "credentials.yml"
+$MODELS_PATH      = Join-Path $BOT_ROOT "models"
+
 # Logs
 $LOG_DIR = Join-Path $BOT_ROOT "logs"
 if (!(Test-Path $LOG_DIR)) {
@@ -30,6 +35,8 @@ Write-Host " BOT_ROOT     = $BOT_ROOT"
 Write-Host " PROJECT_ROOT = $PROJECT_ROOT"
 Write-Host " VENV_PYTHON  = $VENV_PYTHON"
 Write-Host " VENV_RASA    = $VENV_RASA"
+Write-Host " ENDPOINTS    = $ENDPOINTS_PATH"
+Write-Host " CREDENTIALS  = $CREDENTIALS_PATH"
 Write-Host " LOG_DIR      = $LOG_DIR"
 Write-Host "============================================="
 
@@ -72,7 +79,7 @@ function Kill-Port {
 function Wait-For-Rasa {
     param(
         [string]$Url = "http://localhost:5005/status",
-        [int]$TimeoutSeconds = 40
+        [int]$TimeoutSeconds = 60
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -80,13 +87,18 @@ function Wait-For-Rasa {
         try {
             $r = Invoke-WebRequest -Uri $Url -UseBasicParsing -Method Get -TimeoutSec 5
             if ($r.StatusCode -eq 200) {
-                Write-Host "Rasa is up at $Url"
-                return $true
+                $json = $r.Content | ConvertFrom-Json
+                if ($json.model_file) {
+                    Write-Host "Rasa is up AND model loaded at $Url"
+                    return $true
+                }
+                Write-Host "Rasa up but still loading model..."
             }
         }
         catch {
             Start-Sleep -Seconds 2
         }
+        Start-Sleep -Seconds 1
     }
     Write-Host "Rasa did not become ready within $TimeoutSeconds seconds."
     return $false
@@ -101,15 +113,18 @@ Kill-Port 5500
 # 1) Start ACTION SERVER
 Write-Host "Starting action server on :5055 ..."
 $actionsJob = Start-Job -ScriptBlock {
-    param($PROJECT_ROOT, $VENV_RASA, $actionsLog)
+    param($PROJECT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH)
     Set-Location $PROJECT_ROOT
+
+    $env:PYTHONPATH = $PROJECT_ROOT
 
     & $VENV_RASA run actions `
         --actions CampusCompass.app.actions.actions `
         --port 5055 `
+        --endpoints $ENDPOINTS_PATH `
         *> $actionsLog
 
-} -ArgumentList $PROJECT_ROOT, $VENV_RASA, $actionsLog
+} -ArgumentList $PROJECT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH
 
 Write-Host ("Action server job ID = {0}" -f $actionsJob.Id)
 Start-Sleep -Seconds 2
@@ -117,19 +132,21 @@ Start-Sleep -Seconds 2
 # 2) Start RASA SERVER
 Write-Host "Starting Rasa server on :5005 ..."
 $coreJob = Start-Job -ScriptBlock {
-    param($BOT_ROOT, $VENV_RASA, $coreLog)
-    Set-Location $BOT_ROOT
+    param($PROJECT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH)
+    Set-Location $PROJECT_ROOT
+
+    $env:PYTHONPATH = $PROJECT_ROOT
 
     & $VENV_RASA run `
         --enable-api `
         --cors "*" `
         --port 5005 `
-        --credentials credentials.yml `
-        --endpoints endpoints.yml `
-        --model models `
+        --credentials $CREDENTIALS_PATH `
+        --endpoints $ENDPOINTS_PATH `
+        --model $MODELS_PATH `
         *> $coreLog
 
-} -ArgumentList $BOT_ROOT, $VENV_RASA, $coreLog
+} -ArgumentList $PROJECT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH
 
 Write-Host ("Rasa core job ID     = {0}" -f $coreJob.Id)
 
@@ -148,13 +165,13 @@ $WEB_ROOT = Join-Path $BOT_ROOT "web"
 if (!(Test-Path $WEB_ROOT)) {
     Write-Host "ERROR: Web root not found at:"
     Write-Host "  $WEB_ROOT"
-    Write-Host "Make sure your 'web' folder exists next to this script."
-    # stop jobs so we don't leak them
+
     Stop-Job $actionsJob.Id -ErrorAction SilentlyContinue
     Stop-Job $coreJob.Id    -ErrorAction SilentlyContinue
     Receive-Job $actionsJob.Id -ErrorAction SilentlyContinue | Out-Null
     Receive-Job $coreJob.Id    -ErrorAction SilentlyContinue | Out-Null
     Remove-Job $actionsJob.Id,$coreJob.Id -ErrorAction SilentlyContinue
+
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -175,7 +192,6 @@ Write-Host "Press Ctrl+C in this window to stop the frontend and servers."
 Write-Host ""
 
 try {
-    # Block here so the window stays open while http.server runs.
     & $VENV_PYTHON -m http.server 5500
 }
 catch {
@@ -197,6 +213,5 @@ finally {
 
     Write-Host "Done."
     Write-Host ("Logs are in $LOG_DIR")
-    # Als je dubbelklikt wil je de output nog zien:
     Read-Host "Press Enter to exit"
 }

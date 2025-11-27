@@ -1,2 +1,28 @@
 action_endpoint:
-  url: "http://127.0.0.1:5055/webhook"
+  url: "http://localhost:5055/webhook"
+
+model_groups:
+  - id: openai_command_generation_model
+    models:
+      - provider: openai
+        model: gpt-4o-mini
+        timeout: 30
+        api_key: ${OPENAI_API_KEY}
+        temperature: 0.0
+
+  # 2) Response generation voor RAG (Enterprise Search)
+  - id: openai_search_generation_model
+    models:
+      - provider: openai
+        model: gpt-4o-mini
+        timeout: 30
+        api_key: ${OPENAI_API_KEY}
+        temperature: 0.2
+
+  # 3) Embeddings model voor indexing/search
+  - id: openai_embeddings_model
+    models:
+      - provider: openai
+        model: text-embedding-3-small
+        api_key: ${OPENAI_API_KEY}
+        timeout: 30

@@ -1,0 +1,756 @@
+version: "3.1"
+
+patterns:
+  building_and_room_code_patterns:
+    description: |
+      This section describes how Radboud University building abbreviations
+      and room codes are structured, so the assistant can recognize them
+      and map them to the correct flow.
+
+      The main distinction is:
+
+      - abbreviation_flow:
+        For questions like "what does this code mean / stand for?"
+        or "what building is this code?".
+      - Thematic flows (food_and_drink_flow, opening_hours_flow,
+        study_association_flow, etc.):
+        For questions about facilities, food, study associations,
+        prayer rooms, events, opening hours, etc. in or near a building.
+      - pattern_search:
+        Catch-all when a question is clearly about campus but does not
+        strongly match any thematic flow.
+      - fallback_flow:
+        For random / unknown strings that clearly do not match campus
+        building or room patterns.
+
+      GENERAL PRINCIPLES
+
+      - A "building or room code" is usually a short abbreviation (1–5
+        letters) followed by optional numbers and dots, for example:
+        "MM", "MM 01.029", "SP A/B -1.55", "E.01.15", "GR 0.100".
+      - When users mention such codes, they are typically asking either:
+        - what building it refers to (→ abbreviation_flow), or
+        - opening hours, facilities or locations for that building
+          (→ one of the thematic search flows / pattern_search).
+      - When the user writes a code like "MM 01.029", treat the whole
+        string as the value for the abbreviation_raw slot.
+
+      COLLEGEZAALENCENTRUM / COLLEGEZAALCOMPLEX
+
+      - Name: Collegezalencomplex (Lecture Hall Complex)
+      - Address: Mercatorpad 1
+      - Abbreviation: CC
+      - Example room codes:
+        - CC1 t/m CC5 = lecture halls 1–5 on the ground floor.
+      - Any code that starts with "CC" followed by a digit (for example
+        "CC3") is a room in the Collegezalencomplex at Mercatorpad 1.
+
+      SPINOZA BUILDING (SP)
+
+      - Name: Spinozagebouw (Spinoza Building)
+      - Address: Montessorilaan 3
+      - Abbreviation: SP
+      - Example codes:
+        - SP1 t/m SP3 = lecture halls 1–3 on the ground floor.
+        - SP A/B -1.55 = basement room 55 in wing A/B.
+        - SP A 01.14 = wing A, 1st floor, room 14.
+        - SP B.00.12 = wing B, ground floor, room 12.
+      - If a code starts with "SP" optionally followed by a wing letter
+        (A or B) and contains floor/room numbers, treat it as a Spinoza
+        Building room code.
+
+      MARIA MONTESSORI BUILDING (MM)
+
+      - Name: Maria Montessori Building
+      - Address: Thomas van Aquinostraat 4
+      - Abbreviation: MM
+      - Wing rules:
+        - MM 1–199 = blue wing.
+        - MM 200–299 = bridge with Grand Café de Iris.
+        - MM 300 and higher = green wing.
+      - Even room numbers are on the window side.
+      - Odd room numbers are on the atrium side.
+      - Example code:
+        - MM 01.029 = blue wing, 1st floor, room 29.
+      - Any code starting with "MM" followed by a floor/room pattern
+        like "MM 01.029" or "MM 02.123" is a Maria Montessori room.
+
+      THOMAS VAN AQUINOSTRAAT (TvA)
+
+      - Name: Thomas van Aquinostraat buildings
+      - Street: Thomas van Aquinostraat
+      - Abbreviation: TvA
+      - Example room codes:
+        - TvA. 1.00.09 = Thomas van Aquinostraat 1, ground floor, room 9.
+        - TvA. 2.03.06 = Thomas van Aquinostraat 2, 3rd floor, room 6.
+      - When you see "TvA." followed by building number, floor and room
+        segments separated by dots, treat it as a Thomas van Aquinostraat
+        room code.
+
+      ERASMUS BUILDING (E)
+
+      - Name: Erasmusgebouw (Erasmus Building)
+      - Address: Erasmusplein 1
+      - Abbreviation: E
+      - Example codes:
+        - E.01.15 = 1st floor, room 15.
+        - E.2.50 = low-rise section, room 2.50.
+      - Codes starting with "E." followed by floor/room segments belong
+        to the Erasmus Building.
+
+      GYMNASION / SPORTS CENTRE (GYM / GN / RSC)
+
+      - Names and abbreviations:
+        - Gymnasion (sports building): GYM or GN
+        - Sports Centre: RSC
+        - Shared address: Heyendaalseweg 141
+      - GN room patterns:
+        - GN 1–3 = ground floor rooms 1–3.
+        - GN 4–7 = 1st floor rooms 4–7.
+      - Z 01.240 in this context refers to a 1st floor room
+        (Z 01.240 = 1st floor).
+      - Sports centre codes:
+        - Sporthallen Hal 1 and Hal 2 are often used for exams.
+      - When you see "GN" followed by a small number, treat it as a
+        Gymnasion room code at Heyendaalseweg 141.
+        When you see RSC + hall number, treat it as a Sports Centre space.
+
+      GROTIUS BUILDING (GR)
+
+      - Name: Grotiusgebouw (Grotius Building)
+      - Address: Montessorilaan 10
+      - Abbreviation: GR
+      - Example codes:
+        - GR 0.100 = large lecture hall on the ground floor.
+        - GR 01.175 = 1st floor, room 175.
+        - GR -01.175 = one level below the ground floor, room 175.
+      - Any code starting with "GR" followed by floor/room numbers is a
+        Grotius room code.
+
+      LINNAEUS BUILDING (LIN)
+
+      - Name: Linnaeusgebouw (Linnaeus Building)
+      - Address: Heyendaalseweg 137
+      - Abbreviation: LIN
+      - LIN 1–8 refers to lecture halls 1–8 in the Linnaeus Building.
+      - Any code starting with "LIN" followed by a small number refers
+        to a Linnaeus lecture hall.
+
+      ELN ROOMS (ELN)
+
+      - Address: Erasmuslaan 9
+      - Abbreviation: ELN
+      - Example codes:
+        - ELN9-Aula = Aula on the ground floor.
+        - ELN9-lokaal 2 = room 2 on the ground floor.
+        - ELN LOK 01.23 = room 23, 1st floor.
+      - Any code starting with "ELN" or "ELN9" refers to a room in the
+        Erasmuslaan 9 building.
+
+      ELINOR OSTROM BUILDING (EOS)
+
+      - Name: Elinor Ostrom Building
+      - Address: Heyendaalseweg 141 (near the University Library and
+        Gymnasion)
+      - Abbreviation: EOS
+      - Typical room code:
+        - EOS 01.110 = 1st floor, room 110.
+      - EOS is often used in schedules as a building code by itself.
+
+      COMENIUS BUILDINGS (COMA / COMB)
+
+      - Names: Comenius Building A and Comenius Building B
+      - Common informal abbreviations:
+        - COMA -> Comenius Building A
+        - COMB -> Comenius Building B
+      - When the user types COMA or COMB in a timetable context, treat
+        it as a building abbreviation referring to Comenius A or B.
+
+      OTHER COMMON BUILDINGS AND NAMES
+
+      The campus also contains buildings and facilities such as:
+      - Aula (ceremonial hall)
+      - Berchmanianum
+      - Huygens Building (often abbreviated as HG in timetables)
+      - University Library (UB)
+      - De Refter (central restaurant, Erasmus low-rise)
+      - Grand Café de Iris (in Maria Montessori)
+      - Various food and non-alcoholic drink locations, bars and cafés
+        around the Erasmus and Huygens zones.
+
+      Even if a building does not follow a strict abbreviation pattern,
+      treat any of the names above as campus buildings or facilities.
+
+      DECISION LOGIC FOR BUILDING / ROOM PATTERNS
+
+      - If the user message contains a string that matches one of the
+        abbreviation patterns above (MM, SP, CC, GR, LIN, E, GN, EOS,
+        TvA, COMA, COMB, ELN, HG, etc.), it is likely a building or room
+        code:
+
+        1) If they ask "what is this?" / "what does this code mean?" /
+           "what building is that?":
+           → use abbreviation_flow and fill abbreviation_raw with the code.
+
+        2) If they ask about:
+           - where the building is,
+           - what is inside,
+           - food or coffee there,
+           - study associations there,
+           - prayer rooms there,
+           - events there,
+           - opening hours of that building or a facility inside it,
+           → use the corresponding thematic flow:
+             - food_and_drink_flow for food / non-alcoholic drinks,
+             - alcohol_and_bar_flow for alcohol / borrels,
+             - study_association_flow for study associations,
+             - umbrella_association_flow for umbrella organisations,
+             - prayer_room_flow for prayer / quiet rooms,
+             - event_and_activity_flow for venues / events,
+             - public_transport_flow for "which station/bus for X",
+             - opening_hours_flow when time/open/close is the main focus,
+             - other_facilities_flow for childcare, parking and similar.
+           If none fits clearly, fall back to pattern_search.
+
+      - If the user sends short random strings that do NOT match any of
+        the patterns above, treat them as unclear input and prefer
+        fallback_flow over abbreviation_flow.
+
+  food_and_drink_patterns:
+    description: |
+      This section describes how to recognise user questions about food,
+      drinks and non-alcoholic cafés/restaurants on and around Radboud
+      campus, and how to route them.
+
+      WHAT COUNTS AS A "FOOD / DRINK" QUESTION
+
+      Treat a user utterance as a food/drink question when:
+      - They ask where to eat or drink on campus, for example:
+        - "Where can I get lunch on campus?"
+        - "Where can I drink coffee near EOS?"
+        - "Is there food inside MM?"
+        - "Where can I get a snack between lectures?"
+      - They mention a specific venue like:
+        - De Refter, Cultuurcafé, Grand Café de Iris, Blommers (EOS/HG),
+          Coffee Corner UB, Giga-Bite, Het Gerecht, The Yard, the
+          Radboudumc restaurant, etc.
+      - They ask about typical food, drinks or vibe of such places:
+        - "What do they sell in De Refter?"
+        - "Is Cultuurcafé a bar or just a café?"
+        - "Is there vegetarian food at the campus restaurant?"
+        - "Where can I get good coffee near the library?"
+
+      DECISION LOGIC
+
+      - If the main focus is FOOD / NON-ALCOHOLIC DRINKS:
+        → use food_and_drink_flow.
+        Examples:
+        - "Is there a café in EOS?"
+        - "Where can I have lunch near Huygens?"
+        - "What is De Refter?"
+      - If the main focus is ALCOHOL / BORRELS:
+        → use alcohol_and_bar_flow instead (see below).
+      - If the main focus is OPENING HOURS of a food venue
+        ("What time does De Refter close on Thursday?"):
+        → prefer opening_hours_flow; the answer can still mention
+          the type of venue.
+      - If the question mixes food with broader description
+        ("Tell me what is in MM, including food and study spaces"):
+        → if it is mainly about food → food_and_drink_flow;
+          otherwise → pattern_search.
+
+      EXAMPLES (→ food_and_drink_flow)
+
+      - "Where can I eat near GR?"
+      - "Is there a coffee bar in EOS?"
+      - "Where can I get a sandwich close to the UB?"
+      - "What kind of place is Grand Café de Iris?"
+
+  alcohol_and_bar_patterns:
+    description: |
+      This section covers questions about alcohol, bars and borrel
+      locations on campus and how to route them.
+
+      IMPORTANT CAMPUS RULE
+
+      - Alcohol can only be served on campus after 15:30.
+
+      WHAT COUNTS AS A "BAR / BORREL" QUESTION
+
+      Treat a message as bar/borrel-related when users:
+      - Ask explicitly about alcohol, beers, borrels, or (alcoholic)
+        drinks:
+        - "Where can I drink beer on campus?"
+        - "Are there any student bars here?"
+        - "Can I get a beer before my exam?"
+      - Mention specific bar-type venues:
+        - Cultuurcafé (particularly evenings),
+          MFVN Café de Aesculaaf, TFV bar 't Dappenglaasje,
+          The Yard, dentistry café/bar, etc.
+      - Ask about where study associations organise borrels:
+        - "Where are Huygens borrels?"
+        - "Where does my association usually drink?"
+
+      DECISION LOGIC
+
+      - If the question is about ALCOHOL, BORRELS or STUDENT BARS:
+        → use alcohol_and_bar_flow.
+      - If they also mention opening hours ("When is Cultuurcafé open?")
+        but alcohol/bars is still central:
+        → alcohol_and_bar_flow; the answer can include hours if available.
+      - If the question is mainly "when is this place open" with only a
+        minor reference to alcohol:
+        → opening_hours_flow may be acceptable, but alcohol_and_bar_flow
+          is preferred if the bar nature is central.
+      - If they ask whether a random room can serve alcohol or about
+        association canteens used as bar in Huygens:
+        → alcohol_and_bar_flow.
+
+      EXAMPLES (→ alcohol_and_bar_flow)
+
+      - "Where is Café de Aesculaaf?"
+      - "What time does 't Dappenglaasje open?"
+      - "Are there any campus pubs apart from Cultuurcafé?"
+      - "Can I drink alcohol in the afternoon in MM?"
+
+  study_association_patterns:
+    description: |
+      This section explains how to recognise questions about faculty
+      or study associations and route them correctly.
+
+      WHAT COUNTS AS A "STUDY ASSOCIATION" QUESTION
+
+      Treat a message as study-association-related when users:
+      - Ask about specific study associations:
+        - "Where is Mundus located?"
+        - "Where is ismus / Common Ground?"
+        - "Where is the study association for dentistry?"
+      - Ask about "study association rooms", "association floor",
+        "association corridor", or "board room".
+      - Ask generally:
+        - "Where can I find my study association?"
+        - "Which building are the law associations in?"
+        - "Where is the association cluster in EOS?"
+
+      DECISION LOGIC
+
+      - If the main focus is LOCATION / ROOM / BUILDING of study
+        associations or their hang-out spaces:
+        → use study_association_flow.
+      - If they ask where associations organise BORRELS or EVENTS:
+        - For bar-like events → alcohol_and_bar_flow.
+        - For general event spaces (Theaterzaal C, Aula, etc.) →
+          event_and_activity_flow.
+      - If they ask "What is a study association?" in a generic way
+        without referencing specific campus docs:
+        - The LLM may answer briefly without using search, but
+          study_association_flow is still a reasonable choice to keep
+          behaviour consistent.
+
+      EXAMPLES (→ study_association_flow)
+
+      - "Where is the ismus board room in EOS?"
+      - "What is Common Ground in Maria Montessori?"
+      - "Where are the law associations located?"
+
+  umbrella_association_patterns:
+    description: |
+      This section covers questions about umbrella ("koepel")
+      organisations and student platforms on campus.
+
+      WHAT COUNTS AS AN "UMBRELLA ASSOCIATION" QUESTION
+
+      Treat it as an umbrella/koepel question when:
+      - Users explicitly mention CSN, BOS, SOFv, CODC, NSSR, VOS or
+        similar umbrella acronyms.
+      - They ask "Where are the umbrella associations located?" or
+        "What is SOFv?" or "Where is the student union AKKU?".
+      - They talk about "De Ondergang" as a cluster of student
+        organisations in the EOS basement.
+
+      DECISION LOGIC
+
+      - Location and description of umbrella associations (often in
+        the Ondergang in EOS) is factual campus info:
+        → use umbrella_association_flow.
+      - If they ask "What does SOFv stand for?" or "What is CODC?",
+        this is still campus-specific abbreviation + role information:
+        → umbrella_association_flow.
+      - If they mention random acronyms with no match in the knowledge
+        base, prefer:
+        → fallback_flow, not guessing.
+
+      EXAMPLES (→ umbrella_association_flow)
+
+      - "Where is SOFv located?"
+      - "What is CODC?"
+      - "Is NSSR an umbrella or a normal association?"
+      - "Where are the umbrella organisations in EOS?"
+
+  prayer_room_patterns:
+    description: |
+      This section explains how to handle questions about prayer rooms,
+      quiet rooms, reflection spaces and similar facilities, and map
+      them to the right flow.
+
+      WHAT COUNTS AS A "PRAYER / REFLECTION ROOM" QUESTION
+
+      Treat an utterance as prayer-room-related when:
+      - Users explicitly say "prayer room", "quiet room", "reflection
+        room", "meditation space", etc.:
+        - "Is there a prayer room on campus?"
+        - "Where can I pray as a Muslim student?"
+        - "Is there a quiet room in the library?"
+      - They mention concrete locations from the knowledge base:
+        - Student Church, UB reflection room (UB-1.02), Transitorium
+          prayer room, Radboudumc quiet room, MSV room in the Ondergang
+          (EOS).
+
+      DECISION LOGIC
+
+      - If the focus is the LOCATION / AVAILABILITY / TYPE of prayer
+        room or reflection space:
+        → use prayer_room_flow.
+      - If the focus is specifically OPENING HOURS:
+        → opening_hours_flow is acceptable, but prayer_room_flow may
+          still answer and mention hours if docs include them.
+      - If they ask conceptual/theological questions ("how should I
+        pray", "which religion is this room for"):
+        - That is not pure campus-facts; answer briefly and carefully,
+          but prayer_room_flow can still be used because the facilities
+          are campus-based.
+
+      EXAMPLES (→ prayer_room_flow)
+
+      - "Where is the prayer room in the library?"
+      - "Does Radboud have separate prayer rooms for men and women?"
+      - "Is there a 24/7 quiet room on campus?"
+
+  event_and_activity_patterns:
+    description: |
+      This section describes how to recognise questions about event
+      venues, performance spaces, and frequent activity locations.
+
+      WHAT COUNTS AS AN "EVENT / ACTIVITY" QUESTION
+
+      Treat it as event-related when users:
+      - Mention event venues:
+        - Theaterzaal C, Aula, Berchmanianum, Huize Heyendael.
+      - Mention campus social/event spaces:
+        - De Ondergang (EOS), Common Ground (MM), Huygens canteens
+          used for events, association borrel spaces.
+      - Ask where an event is when a room/building/venue name is given:
+        - "My schedule says Theaterzaal C; where is that?"
+        - "Where is the Aula for my graduation?"
+      - Ask "Where do study associations usually organise activities?"
+
+      DECISION LOGIC
+
+      - If they ask *where* the event space is or what it is used for:
+        → use event_and_activity_flow.
+      - If they ask "what kind of events happen in X", this is still
+        factual campus context:
+        → event_and_activity_flow.
+      - If they ask about booking/reservations ("Can I book the Aula?"):
+        - Start from event_and_activity_flow and answer based on
+          official descriptions if available; otherwise mention that
+          booking goes via university channels and avoid inventing rules.
+
+      EXAMPLES (→ event_and_activity_flow)
+
+      - "Where is Theaterzaal C?"
+      - "What is De Ondergang in EOS?"
+      - "Where is the Aula for graduation ceremonies?"
+      - "Where do associations organise larger events?"
+
+  public_transport_patterns:
+    description: |
+      This section describes how to recognise questions about public
+      transport (OV) to, from and around campus and map them to the
+      appropriate flow.
+
+      WHAT COUNTS AS A "PUBLIC TRANSPORT" QUESTION
+
+      Treat an utterance as public-transport-related when users:
+      - Explicitly talk about trains, buses, trams, OV, NS, Arriva:
+        - "How do I get to campus by train?"
+        - "Which bus should I take to EOS?"
+        - "Is there a bus stop near the UB?"
+      - Mention stations and stops:
+        - Nijmegen Centraal, Nijmegen Heyendaal, Heyendaalseweg stop,
+          Huygens building bus stop, UMC bus stop, etc.
+      - Ask how to get from a station to a campus building:
+        - "How do I get from Nijmegen Central to Huygens?"
+        - "What is the nearest station for Grotius?"
+
+      DECISION LOGIC
+
+      - If the main focus is WHICH STATION / STOP / GENERAL OV ROUTE:
+        → use public_transport_flow.
+      - Do NOT use this flow for detailed walking directions between
+        two campus buildings (e.g. "How do I walk from MM to Huygens?").
+        Those should be handled by your route/navigation flows if
+        defined elsewhere.
+      - The assistant must not give live departure times or delays,
+        only general routes and typical stops as described in docs.
+
+      EXAMPLES (→ public_transport_flow)
+
+      - "Which station is closest to Huygens?"
+      - "Is there a bus stop near the University Library?"
+      - "How do I get from Nijmegen Central to campus?"
+      - "Which bus line should I take to EOS?"
+
+  opening_hours_patterns:
+    description: |
+      This section describes how to recognise generic opening-hours
+      questions for buildings, services and venues and map them to
+      opening_hours_flow.
+
+      WHEN TO TREAT A QUESTION AS "OPENING HOURS"
+
+      - The user explicitly mentions time, opening, closing:
+        - "What time does the library close today?"
+        - "Is EOS open on Saturday?"
+        - "Until what time is De Refter open on Thursday?"
+      - They combine a building or venue with words like "open",
+        "close", "opening hours", "when":
+        - "Is the prayer room open in the evening?"
+        - "Is the parking garage by Gymnasion 24/7?"
+      - They ask whether a facility is accessible on weekends, at night
+        or during exams:
+        - "Is the UB open on Sunday?"
+        - "Does the MM building stay open in the evening?"
+
+      DECISION LOGIC
+
+      - If the main intent is to know WHEN it is open or closed:
+        → use opening_hours_flow, regardless of whether the facility
+          is a building, library, food venue, prayer room, parking
+          garage, childcare, etc.
+      - If the question is primarily about what the place IS or does
+        with only a minor time remark ("what is De Refter and when is
+        it open?"):
+        - You may still use opening_hours_flow and give a short
+          combined answer,
+        - or use the relevant thematic flow (food_and_drink_flow,
+          prayer_room_flow, other_facilities_flow) if the "what is it"
+          aspect is stronger.
+      - If no exact hours are known, say so clearly instead of
+        inventing times.
+
+      EXAMPLES (→ opening_hours_flow)
+
+      - "Is P7b open at night?"
+      - "When is Childcare Heyendael open?"
+      - "What are the UB opening hours on Sunday?"
+      - "How long is EOS open on Fridays?"
+
+  other_facilities_patterns:
+    description: |
+      This section groups "other" campus facilities such as childcare,
+      parking garages, and some general building facilities that are
+      not purely food/drink, abbreviations, or prayer rooms.
+
+      CHILDCARE / DAYCARE (KINDEROPVANG HEYENDAEL)
+
+      - If the user mentions "childcare", "daycare", "Kinderopvang
+        Heyendael", "Kinderdagverblijf", "campus daycare", or
+        "KDV Heyendael", treat this as a childcare facility question.
+      - Typical questions:
+        - "Where is the daycare on campus?"
+        - "Is there childcare on campus?"
+        - "Is the daycare only for staff children?"
+        - "How does Childcare Heyendael work?"
+
+      PARKING GARAGES / MOBILITY
+
+      - If the user mentions parking garages such as P7b (Gymnasion
+        garage), Grotius or Huygens garages, or asks:
+        - "Where can I park for EOS / Gymnasion / Huygens / GR?"
+        - "Is the parking garage near Gymnasion 24/7?"
+        - "How high is the parking garage by EOS?"
+      - These are parking / mobility questions, not route directions:
+        they are about where to park and what conditions apply.
+
+      BICYCLES / BIKE PARKING (NEW)
+
+      - If the user mentions "bike parking", "bicycle shed", "fiets",
+        "fiets parkeren", "fietsenstalling", "bike racks", "fietsrekken",
+        or similar:
+        - treat this as part of other_facilities_flow.
+      - Typical examples:
+        - "Where can I park my bike at MM?"
+        - "Is there a bicycle parking near the library?"
+        - "Where is the fietsenstalling by Huygens?"
+        - "Can I lock my bike somewhere near EOS?"
+
+      OTHER FACILITIES (IF NEEDED)
+
+      - General non-food, non-prayer, non-event facilities described
+        in the docs can also be handled here when no other thematic
+        flow fits better.
+
+      DECISION LOGIC
+
+      - If the main focus is childcare / daycare / Kinderopvang:
+        → use other_facilities_flow.
+        - For time-only questions ("when is it open?") you may still
+          prefer opening_hours_flow, but other_facilities_flow can
+          answer with whatever is in the docs.
+      - If the main focus is parking, parking garages, or where to park
+        for a building:
+        → use other_facilities_flow.
+        - For purely time-focused parking questions ("Is P7b open
+          24/7?"), opening_hours_flow is also acceptable, but
+          other_facilities_flow is fine as it may mention context.
+      - If the main focus is bike parking / bicycle sheds / fietsrekken
+        / fietsenstalling:
+        → other_facilities_flow.
+      - If the question is about another facility that is neither food
+        nor bar nor prayer room nor event space, but appears in the
+        docs as a campus service:
+        → other_facilities_flow.
+      - If it clearly matches none of the thematic flows but is still
+        campus factual:
+        → pattern_search as final catch-all.
+
+      EXAMPLES (→ other_facilities_flow)
+
+      - "Where is Childcare Heyendael?"
+      - "Is there daycare on campus?"
+      - "Where can I park if I go to Gymnasion?"
+      - "Is the parking garage by EOS 24/7?"
+      - "Where can I park my bike at MM?" (NEW)
+      - "Is there a bike parking spot near the library?"
+
+  study_spots_patterns:
+    description: |
+      This section describes how to recognise user questions about
+      study places and quiet workspaces on campus, and map them to
+      study_spots_flow instead of the more generic pattern_search.
+      
+      WHAT COUNTS AS A "STUDY SPOT" QUESTION
+      
+      Treat a message as study-spot-related when users:
+      - Explicitly ask where they can study or work:
+        - "Where can I study on campus?"
+        - "I need a quiet place to study."
+        - "Where can I work on my laptop near EOS?"
+      - Mention "study places", "study spots", "study areas",
+        "study spaces", "quiet zone" or similar:
+        - "Where are the quiet study zones?"
+        - "Is there a silent study area in Maria Montessori?"
+      - Refer to typical study buildings:
+        - the University Library (UB),
+        - Maria Montessori study floors,
+        - EOS study zones,
+        - Huygens study areas,
+        - Radboudumc Study Center, etc.,
+        combined with language about studying or working.
+      
+      DECISION LOGIC
+      
+      - If the main purpose of the question is to find a place to
+        study or work (quiet or group), choose **study_spots_flow**.
+      - If the main purpose is to know WHEN such a place is open
+        ("What are the UB opening hours on Sunday?"), prefer
+        **opening_hours_flow** instead, even if the location is a
+        study space.
+      - If the main purpose is food or drinks ("Where can I get coffee
+        near the library?"), prefer **food_and_drink_flow**.
+      - If the question mixes topics, choose the flow that best matches
+        the user's core goal (for example, if they say "I want to study
+        and get coffee near MM", you may still use study_spots_flow and
+        mention both study and coffee options as documented).
+      
+      EXAMPLES
+      
+      - "Where can I study near EOS?"
+      - "Is there a quiet place to study in the library?"
+      - "What are good study spots in Maria Montessori?"
+      - "Can I study in Huygens if I am not a science student?"
+
+  smalltalk_patterns:
+    description: |
+      This section explains how to recognise off-topic smalltalk and route
+      it to **smalltalk_flow** (or, when triggered by Rasa repair logic,
+      to pattern_chitchat).
+      
+      WHAT COUNTS AS SMALLTALK:
+      - Short emotional reactions without a campus task:
+        - "lol", "haha", "hahaha", "omg", "wow", "nice", "cool"
+        - "you are funny", "love this bot", "you are great"
+      - Light social questions or remarks not tied to campus:
+        - "how is your day?", "what is your favourite color?"
+        - "tell me something random", "tell me a joke"
+      - Meta comments about the conversation:
+        - "this is weird", "you are surprisingly helpful", "ok cool 👍"
+      
+      CONDITIONS FOR smalltalk_flow:
+      - The message does NOT contain a concrete campus request:
+        - no "where is X", "how do I get to Y", "when is Z open"
+        - no building or room code like "MM 01.029", "EOS", "HG00.616"
+        - no explicit abbreviation question ("what does EOS mean?")
+      - The message is NOT primarily about identity:
+        - pure "who are you" or "what can you do" goes to identity_flow.
+      
+      IMPORTANT NEGATIVE EXAMPLES (SHOULD NOT USE smalltalk_flow):
+      - Mixed smalltalk + campus request:
+        - "lol I am lost, how do I get to MM?"
+        - "haha, where is EOS again?"
+        → these must be routed to the relevant campus flow
+          (e.g. abbreviation_flow, pattern_search), not smalltalk_flow.
+      - Campus content disguised as a joke:
+        - "haha, where can I get coffee near UB?"
+        → still a food_and_drink_flow question.
+      
+      BEHAVIOUR:
+      - For pure smalltalk, use smalltalk_flow:
+        - first run action_smalltalk_llm for one short, friendly sentence
+          that does NOT answer campus questions,
+        - then utter_free_chitchat_response to remind the user the bot
+          is for campus help.
+      - When Rasa’s pattern_chitchat override is triggered instead,
+        it should behave similarly but only send utter_free_chitchat_response.
+      
+      If the user continues with a concrete campus question after smalltalk,
+      subsequent turns should use the normal content flows again.
+
+    mental_health_patterns:
+      description: |
+        This section explains when to route a message to **mental_health_flow**
+        instead of normal campus flows.
+
+        TREAT AS MENTAL HEALTH / CRISIS WHEN:
+        - The user talks about wanting to die, not wanting to live, or suicidal thoughts:
+          - "I don't want to live anymore", "I want to end it", "I am suicidal".
+        - The user mentions self-harm or harming themselves:
+          - "I cut myself", "I want to hurt myself", "I hurt myself on purpose".
+        - The user says they are in crisis or completely overwhelmed emotionally:
+          - "I can't cope anymore", "everything is too much", "I am really not okay".
+        - The message is mainly about mental health problems, depression, severe anxiety,
+          panic attacks, burnout, or feeling unsafe with themselves.
+
+        PRIORITY OVER OTHER FLOWS:
+        - If there are clear suicidal or self-harm signals, choose mental_health_flow
+          even when the user also talks about studies or campus, for example:
+          "I am so done with my studies here, I want to end it".
+        - Do NOT route such messages to smalltalk_flow, pattern_chitchat, or fallback_flow.
+          Safety and signposting to real help always take priority.
+
+        BEHAVIOUR EXPECTATIONS:
+        - The assistant must NOT offer therapy, diagnoses, or detailed coping techniques.
+        - It must clearly say that CampusCompass cannot support with mental health or crises,
+          and should encourage reaching out to real people.
+        - It should mention:
+          - 112 for immediate danger or emergencies.
+          - 113 Suicide Prevention for suicidal thoughts (phone 113 or their website),
+            given the Dutch context.
+        - It is helpful to gently encourage informing someone they trust
+          (friend, family, GP, study advisor) and to add a compassionate line such as:
+          "you do not have to go through this alone" and "I hope things will get better".
+
+        If the message only mentions mild stress about studies or exams
+        ("I am stressed about my exam", "this is a bit overwhelming") but no crisis language,
+        then normal campus/help flows can be used instead of mental_health_flow.

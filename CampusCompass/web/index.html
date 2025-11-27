@@ -29,6 +29,7 @@
     .shell {
       width: 100%; max-width: var(--maxw); background: var(--card); border-radius: 24px; box-shadow: var(--shadow);
       display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e5e7eb;
+      height: min(80vh, 700px); /* NEW: prevents feed overlaying composer */
     }
 
     .topbar { position: relative; background: linear-gradient(180deg, #fff, #fafafa); padding: 14px 16px; border-bottom: 1px solid #eee; }
@@ -38,7 +39,13 @@
     .badge { width: 28px; height: 28px; border-radius: 999px; background: var(--brand); display: grid; place-items: center; color: #fff; font-weight: 800; }
     .subtitle { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
-    .feed { padding: 16px; height: min(70vh, 560px); overflow-y: auto; background: url('') center/cover no-repeat; }
+    .feed {
+      padding: 16px;
+      flex: 1;          /* NEW */
+      min-height: 0;    /* NEW */
+      overflow-y: auto;
+      background: url('') center/cover no-repeat;
+    }
     .row { display: flex; gap: 10px; margin: 10px 0; align-items: flex-end; }
     .row.bot { justify-content: flex-start; }
     .row.user { justify-content: flex-end; }
@@ -53,7 +60,10 @@
     .typing span:nth-child(3) { animation-delay: .3s; }
     @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); opacity: .5 } 40% { transform: translateY(-4px); opacity: 1 } }
 
-    .composer { display: flex; gap: 10px; padding: 12px; border-top: 1px solid #eee; background: #fafafa; }
+    .composer {
+      display: flex; gap: 10px; padding: 12px; border-top: 1px solid #eee; background: #fafafa;
+      position: sticky; bottom: 0; z-index: 5; /* NEW: keeps button clickable */
+    }
     .composer input[type="text"] { flex: 1; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; outline: none; }
     .composer button { background: var(--brand); color: #fff; border: 0; border-radius: 12px; padding: 0 16px; font-weight: 600; cursor: pointer; }
     .composer button:disabled { opacity: .6; cursor: not-allowed; }
@@ -69,7 +79,7 @@
         <div class="badge">CC</div>
         <div>
           Campus Compass
-          <div class="subtitle">Radboud • Smart guidance</div>
+          <div class="subtitle">Radboud University</div>
         </div>
       </div>
     </div>
@@ -83,10 +93,17 @@
   </div>
 
   <script>
+    // Wrap everything so a missing id can't kill the whole script
+    window.addEventListener("DOMContentLoaded", () => {
       // --- DOM refs
       const FEED = document.getElementById('feed');
       const INPUT = document.getElementById('input');
       const SEND  = document.getElementById('send');
+
+      if (!FEED || !INPUT || !SEND) {
+        console.error("Missing DOM element(s). Check ids:", { FEED, INPUT, SEND });
+        return;
+      }
 
       // Detect of we lokaal dev draaien (run-dev.ps1) of live achter Caddy
       const runningLocal = (
@@ -215,12 +232,12 @@
             } catch (errFallback) {
               console.error("[CLIENT] fallback also failed:", errFallback);
               typing.remove();
-              bubble('bot', '<em>Server niet bereikbaar. Controleer je verbinding.</em>');
+              bubble('bot', '<em>I can\'t seem to reach the Rasa server... Please check your connection.</em>');
               return;
             }
           } else {
             typing.remove();
-            bubble('bot', '<em>Server niet bereikbaar. Controleer je verbinding.</em>');
+            bubble('bot', '<em>I can\'t seem to reach the Rasa server... Please check your connection.</em>');
             return;
           }
         }
@@ -229,7 +246,7 @@
 
         const msgs = answer.data;
         if (!Array.isArray(msgs) || !msgs.length) {
-          bubble('bot', "<em>Hmm, ik ontving geen antwoord. Probeer het nog eens?</em>");
+          bubble('bot', "<em>Hmm, it seems like Rasa didn't provide me with a reply to give to you...</em>");
           return;
         }
 
@@ -261,13 +278,14 @@
         }
       }
 
-      SEND.onclick = () => sendMessage(INPUT.value.trim());
+      SEND.addEventListener('click', () => sendMessage(INPUT.value.trim()));
       INPUT.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') SEND.click();
       });
 
       // Greeting bubble (UI-side only, geen echte bot call)
-      bubble('bot', 'Hi! 👋 Hoe kan ik je helpen op de campus?');
-</script>
+      bubble('bot', 'Hi! 👋 My name is CampusCompass. Can I help you?');
+    });
+  </script>
 </body>
 </html>

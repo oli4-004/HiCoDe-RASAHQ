@@ -3,95 +3,184 @@ version: "3.1"
 intents:
   - greet
   - goodbye
-  - lost_vague
-  - lost_concrete
-  - lost_partial
-  - abbreviation
-  - thank_you
-
-entities:
-  - building
-
-actions:
-  - validate_route_form
-  - action_route_summary
-  - action_explain_abbreviation
+  - thanks
+  - chitchat
+  - ask_abbreviation
+  - affirm
+  - deny
 
 slots:
-  origin_building:
-    type: text
-    influence_conversation: true
-    mappings:
-      # Answer already contains a building entity
-      - type: from_entity
-        entity: building
-        conditions:
-          - active_loop: route_form
-            requested_slot: origin_building
-      # No building entity is recognised so we take the raw text
-      - type: from_text
-        conditions:
-              - active_loop: route_form
-                requested_slot: origin_building
-  destination_building:
-    type: text
-    influence_conversation: true
-    mappings:
-      - type: from_entity
-        entity: building
-        conditions:
-          - active_loop: route_form
-            requested_slot: destination_building
-      - type: from_text
-        conditions:
-          - active_loop: route_form
-            requested_slot: destination_building
-  followup_question:
+  abbreviation_raw:
     type: text
     influence_conversation: false
     mappings:
-      - type: custom
-  disambiguation_candidates:
-    type: list
-    influence_conversation: false
-    mappings:
-      - type: custom
-  disambiguation_target_slot:
-    type: text
-    influence_conversation: false
-    mappings:
-      - type: custom
+      - type: from_llm
 
-forms:
-  route_form:
-    required_slots:
-      - origin_building
-      - destination_building
+  fallback_attempts:
+    type: float
+    initial_value: 0
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  confirm_correction:
+    type: bool
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  continue_interrupted_flow_confirmation:
+    type: bool
+    influence_conversation: false
+    mappings:
+      - type: from_llm
 
 responses:
+  # ---------------------------------------------------------------------------
+  # GREETING / GOODBYE / THANKS  (greet_flow, goodbye_flow, thanks_flow)
+  # ---------------------------------------------------------------------------
   utter_greet:
-    - text: "Hi! How can I help?"
-  utter_surroundings:
-    - text: "Alright! What do you currently see around you?"
-  utter_ask_origin_building:
-    - condition:
-        - type: slot
-          name: disambiguation_target_slot
-          value: origin_building
-      text: "{followup_question}"
-    - text: "Where are you now? Describe what you see (colors, shapes, signs, platforms, bike racks, water)."
-  utter_ask_destination_building:
-    - condition:
-        - type: slot
-          name: disambiguation_target_slot
-          value: destination_building
-      text: "{followup_question}"
-    - text: "Where do you want to go? If you’re not sure, tell me features (tower, villa in a park, platforms, lecture halls)."
+    - text: "Hi! How can I help you today?"
+
   utter_goodbye:
-    - text: "Bye! 👋"
-  utter_default:
-    - text: "Got it. Can you describe it a bit more?"
-  utter_route_summary:
-    - text: "Got it: from '{origin_building}' to '{destination_building}'."
-  utter_thank_you:
-    - text: "You're welcome! If there's anything else I can help you with, just let me know!"
+    - text: "Bye! Good luck on campus."
+
+  utter_reply_thanks:
+    - text: "You are welcome! Is there anything else I can help you with?"
+
+  # ---------------------------------------------------------------------------
+  # Mental health issues (mental_health_flow)
+  # ---------------------------------------------------------------------------
+
+  utter_mental_health_support:
+    - text: |
+        I am really sorry that you are going through this. 💚
+        CampusCompass cannot support with mental health or crisis situations.
+        If you are in immediate danger or thinking about harming yourself, please call 112 right away.
+        For suicidal thoughts, you can contact 113 Suicide Prevention (by calling 113 or via their website).
+        It can really help to tell someone you trust, such as a friend, family member, GP, or study advisor. You do not have to go through this alone. I hope things will get better for you.
+
+
+  # ---------------------------------------------------------------------------
+  # SMALLTALK (smalltalk_flow)
+  # ---------------------------------------------------------------------------
+  utter_free_chitchat_response:
+    - text: "Just so you know: I am mainly here to help with campus directions, building and room codes, or quick facts like opening hours. If you need anything else, please refer to the appropriate resources."
+
+
+  # ---------------------------------------------------------------------------
+  # ABBREVIATIONS (abbreviation_flow)
+  # ---------------------------------------------------------------------------
+  utter_ask_abbreviation_raw:
+    - text: "Sure, tell me the abbreviation or room code you are confused about."
+
+  # ---------------------------------------------------------------------------
+  # FALLBACK / OUT-OF-SCOPE (fallback_flow)
+  # ---------------------------------------------------------------------------
+  utter_fallback_rephrase:
+    - text: "I did not quite understand that. Can you word your question in a different way?"
+
+  utter_cannot_handle:
+    - text: "I am sorry, it looks like I cannot help you with this issue. If you are in a hurry, please refer to Google Maps or the Radboud University website."
+
+  # ---------------------------------------------------------------------------
+  # RASA PATTERN RESPONSE OVERRIDES
+  # ---------------------------------------------------------------------------
+  utter_ask_continue_interrupted_flow_confirmation:
+    - text: "Do you want to continue where we left off, or would you like to start something new?"
+      metadata:
+        rephrase: true
+
+  utter_ask_interrupted_flow_to_continue:
+    - text: "You started another question earlier. Do you want to continue that one, or move on with your current topic?"
+      metadata:
+        rephrase: true
+
+  utter_ask_rephrase:
+    - text: "I did not quite understand that. Can you word your question in a different way?"
+      metadata:
+        rephrase: true
+
+  utter_ask_still_there:
+    - text: "Hello, are you still there?"
+      metadata:
+        rephrase: true
+
+  utter_boolean_slot_rejection:
+    - text: "Sorry, the value you provided, \"{value}\", is not valid. Please respond with yes or no."
+      metadata:
+        rephrase: true
+
+  utter_can_do_something_else:
+    - text: "Is there anything else I can help you with on campus?"
+      metadata:
+        rephrase: true
+
+  utter_categorical_slot_rejection:
+    - text: "Sorry, your answer \"{value}\" is not one of the valid options. Please choose one of the available options."
+      metadata:
+        rephrase: true
+
+  utter_clarification_options_rasa:
+    - text: "I am not sure I understood. Are you asking about directions, the meaning of a building or room code, or a campus facility such as opening hours?"
+      metadata:
+        rephrase: true
+
+  utter_corrected_previous_input:
+    - text: "OK, I have updated your previous information."
+      metadata:
+        rephrase: true
+
+  utter_float_slot_rejection:
+    - text: "Sorry, the value you provided, \"{value}\", is not a valid number. Please provide a valid number in your response."
+      metadata:
+        rephrase: true
+
+  utter_flow_cancelled_rasa:
+    - text: "OK, I will stop that and not continue the previous task."
+      metadata:
+        rephrase: true
+
+  utter_human_handoff_not_available:
+    - text: "I understand you might want to talk to a human, but I cannot connect you to a person. Is there something else I can help you with on campus?"
+      metadata:
+        rephrase: true
+
+  utter_inform_code_change:
+    - text: "There has been an update to my configuration. I need to wrap up our current conversation and start fresh."
+      metadata:
+        rephrase: true
+
+  utter_inform_hangup:
+    - text: "I have not heard from you for a while, so I will end our conversation for now."
+      metadata:
+        rephrase: true
+
+  utter_internal_error_rasa:
+    - text: "Sorry, I am having trouble with that. Please try again in a few minutes."
+
+  utter_no_knowledge_base:
+    - text: "I am afraid I do not know the answer to that from my campus information. You may want to check the Radboud University website."
+      metadata:
+        rephrase: true
+
+  utter_no_relevant_answer_found:
+    - text: "I am sorry, I cannot find a reliable answer to that question in my campus information."
+      metadata:
+        rephrase: true
+
+  utter_skip_question_answer:
+    - text: "I understand that you would like to skip this step. If you want to continue, please give me any information you think is relevant, or ask a new question."
+      metadata:
+        rephrase: true
+
+  utter_user_input_empty_error_rasa:
+    - text: "I see an empty message. What can I help you with on campus?"
+
+  utter_user_input_too_long_error_rasa:
+    - text: "I am sorry, but your message is too long for me to process. Please keep it to a reasonable length."
+      metadata:
+        rephrase: true
+
+actions:
+  - action_smalltalk_llm
