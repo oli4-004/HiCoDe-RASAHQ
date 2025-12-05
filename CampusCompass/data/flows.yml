@@ -66,33 +66,57 @@ flows:
       - action: utter_reply_thanks
         next: END
 
-  mental_health_flow:
-    description: |
-      Handles messages where the user talks about serious mental health problems,
-      feeling very bad, or thoughts of self-harm or suicide.
+  flows:
+    mental_health_severe_flow:
+      description: |
+        Handles messages where the user talks about serious mental health problems,
+        feeling very bad, or thoughts of self-harm or suicide.
 
-      Use this flow when:
-      - the user explicitly mentions suicidal thoughts, wanting to die, or not wanting to live anymore,
-      - the user describes self-harm (hurting themselves) or wanting to hurt themselves,
-      - the user says they are in crisis, cannot cope anymore, or feel completely overwhelmed,
-      - the main focus is their emotional wellbeing or safety, not a campus fact or simple exam stress.
+        Use this flow when:
+        - the user explicitly mentions suicidal thoughts, wanting to die, or not wanting to live anymore,
+        - the user describes self-harm (hurting themselves) or wanting to hurt themselves,
+        - the user says they are in crisis, cannot cope anymore, or feel completely overwhelmed,
+        - the main focus is their emotional wellbeing or safety, not a campus fact or simple exam stress.
 
-      Behaviour:
-      - Do NOT try to diagnose, give therapy, or "solve" the situation.
-      - Make clear that CampusCompass cannot support with mental health or crisis care.
-      - Encourage the user to reach out to real people and professional help.
-      - Always mention:
-        - 112 for any emergency or immediate danger.
-        - 113 Suicide Prevention (phone 113 or their website) for suicidal thoughts.
-      - End with a short, compassionate line, for example that they do not have to go
-        through this alone and that you hope things will get better.
+        Behaviour:
+        - Do NOT try to diagnose, give therapy, or "solve" the situation.
+        - Make clear that CampusCompass cannot support with mental health or crisis care.
+        - Encourage the user to reach out to real people and professional help.
+        - Always mention:
+          - 112 for any emergency or immediate danger.
+          - 113 Suicide Prevention (phone 113 or their website) for suicidal thoughts.
+        - End with a short, compassionate line, for example that they do not have to go
+          through this alone and that you hope things will get better.
 
-      This flow should be chosen even if the message also mentions campus or studies,
-      when there are clear crisis or self-harm signals. Safety has priority over
-      normal informational tasks.
-    steps:
-      - action: utter_mental_health_support
-        next: END
+        This flow should be chosen even if the message also mentions campus or studies,
+        when there are clear crisis or self-harm signals. Safety has priority over
+        normal informational tasks.
+      steps:
+        - action: utter_severe_mental_health_support
+          next: END
+
+    mental_health_light_flow:
+      description: |
+        Handles messages where the user talks about feeling bad mentally,
+        but there are no clear signs of crisis, self-harm, or suicidal thoughts.
+
+        Use this flow when:
+        - the user says they feel down, lonely, anxious, stressed, or burned out,
+        - the user struggles emotionally, but does NOT mention self-harm or wanting to die,
+        - the main focus is their emotional wellbeing, but the situation does not seem immediately life-threatening.
+
+        Behaviour:
+        - Do NOT try to diagnose, give therapy, or "solve" the situation.
+        - Make clear that CampusCompass cannot support with mental health care.
+        - Encourage the user to talk to someone they trust (friend, family, GP, study advisor).
+        - End with a short, compassionate line, for example that they do not have to go
+          through this alone and that you hope things will get better.
+
+        If at any point the user does mention self-harm, suicidal thoughts, or crisis,
+        the severe mental health flow should be used instead.
+      steps:
+        - action: utter_light_mental_health_support
+          next: END
 
   # ---------------------------------------------------------------------------
   # CONTEXT-INCLUDED FLOWS

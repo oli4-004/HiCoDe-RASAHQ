@@ -719,38 +719,50 @@ patterns:
 
     mental_health_patterns:
       description: |
-        This section explains when to route a message to **mental_health_flow**
-        instead of normal campus flows.
+        This section explains when to route a message to **mental_health_severe_flow**
+        or **mental_health_light_flow** instead of normal campus flows.
 
-        TREAT AS MENTAL HEALTH / CRISIS WHEN:
+        TREAT AS SEVERE MENTAL HEALTH / CRISIS WHEN:
         - The user talks about wanting to die, not wanting to live, or suicidal thoughts:
           - "I don't want to live anymore", "I want to end it", "I am suicidal".
         - The user mentions self-harm or harming themselves:
           - "I cut myself", "I want to hurt myself", "I hurt myself on purpose".
         - The user says they are in crisis or completely overwhelmed emotionally:
           - "I can't cope anymore", "everything is too much", "I am really not okay".
-        - The message is mainly about mental health problems, depression, severe anxiety,
-          panic attacks, burnout, or feeling unsafe with themselves.
+        - The message is mainly about very severe mental health problems, such as
+          deep depression, intense anxiety, panic attacks, burnout, or feeling unsafe
+          with themselves (for example: afraid they might hurt themselves).
+
+        TREAT AS LIGHT / NON-CRISIS MENTAL HEALTH WHEN:
+        - The user talks about feeling mentally unwell, but without clear crisis or self-harm signals:
+          - feeling down, lonely, anxious, insecure, homesick, or low energy.
+          - study stress, performance pressure, or feeling overwhelmed, but still coping.
+          - "I am not doing well mentally", "I feel really low", "I am struggling a lot",
+            as long as they do NOT mention wanting to die or hurt themselves.
+        - The main focus is emotional wellbeing, mood, or stress, but the situation does
+          not seem immediately life-threatening.
 
         PRIORITY OVER OTHER FLOWS:
-        - If there are clear suicidal or self-harm signals, choose mental_health_flow
-          even when the user also talks about studies or campus, for example:
-          "I am so done with my studies here, I want to end it".
-        - Do NOT route such messages to smalltalk_flow, pattern_chitchat, or fallback_flow.
-          Safety and signposting to real help always take priority.
+        - If there are clear suicidal, self-harm, or crisis signals, choose
+          **mental_health_severe_flow** even when the user also talks about studies or campus,
+          for example: "I am so done with my studies here, I want to end it".
+        - If the message is mainly about feeling mentally bad or emotionally overloaded
+          without self-harm or suicidal language, choose **mental_health_light_flow**.
+        - Do NOT route these messages to smalltalk_flow, pattern_chitchat, or fallback_flow.
+          Safety and signposting to real help always take priority over normal informational tasks.
 
-        BEHAVIOUR EXPECTATIONS:
+        BEHAVIOUR EXPECTATIONS (BOTH FLOWS):
         - The assistant must NOT offer therapy, diagnoses, or detailed coping techniques.
-        - It must clearly say that CampusCompass cannot support with mental health or crises,
+        - It must clearly say that CampusCompass cannot support with mental health care or crises,
           and should encourage reaching out to real people.
-        - It should mention:
+        - For severe situations, it should mention:
           - 112 for immediate danger or emergencies.
           - 113 Suicide Prevention for suicidal thoughts (phone 113 or their website),
             given the Dutch context.
-        - It is helpful to gently encourage informing someone they trust
-          (friend, family, GP, study advisor) and to add a compassionate line such as:
+        - For both severe and light situations, it is helpful to gently encourage informing
+          someone they trust (friend, family, GP, study advisor) and to add a compassionate line such as:
           "you do not have to go through this alone" and "I hope things will get better".
 
-        If the message only mentions mild stress about studies or exams
-        ("I am stressed about my exam", "this is a bit overwhelming") but no crisis language,
-        then normal campus/help flows can be used instead of mental_health_flow.
+        If the message only mentions mild, everyday stress about studies or exams
+        ("I am stressed about my exam", "this is a bit overwhelming") but no clear mental health
+        or crisis language, then normal campus/help flows can be used instead of mental health flows.

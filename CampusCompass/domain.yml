@@ -52,7 +52,7 @@ responses:
   # Mental health issues (mental_health_flow)
   # ---------------------------------------------------------------------------
 
-  utter_mental_health_support:
+  utter_severe_mental_health_support:
     - text: |
         I am really sorry that you are going through this. 💚
         CampusCompass cannot support with mental health or crisis situations.
@@ -60,6 +60,11 @@ responses:
         For suicidal thoughts, you can contact 113 Suicide Prevention (by calling 113 or via their website).
         It can really help to tell someone you trust, such as a friend, family member, GP, or study advisor. You do not have to go through this alone. I hope things will get better for you.
 
+  utter_light_mental_health_support:
+    - text: |
+        I am really sorry that you are going through this. 💚
+        CampusCompass cannot support with mental health situations.
+        It can really help to tell someone you trust, such as a friend, family member, GP, or study advisor. You do not have to go through this alone. I hope things will get better for you.
 
   # ---------------------------------------------------------------------------
   # SMALLTALK (smalltalk_flow)
