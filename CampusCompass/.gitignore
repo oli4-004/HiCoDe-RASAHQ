@@ -5,6 +5,5 @@
 __pycache__
 .pyc
 .DS_Store
-debug.log
 /logs
 requirements.in

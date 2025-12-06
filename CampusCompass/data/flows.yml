@@ -66,57 +66,56 @@ flows:
       - action: utter_reply_thanks
         next: END
 
-  flows:
-    mental_health_severe_flow:
-      description: |
-        Handles messages where the user talks about serious mental health problems,
-        feeling very bad, or thoughts of self-harm or suicide.
+  mental_health_severe_flow:
+    description: |
+      Handles messages where the user talks about serious mental health problems,
+      feeling very bad, or thoughts of self-harm or suicide.
 
-        Use this flow when:
-        - the user explicitly mentions suicidal thoughts, wanting to die, or not wanting to live anymore,
-        - the user describes self-harm (hurting themselves) or wanting to hurt themselves,
-        - the user says they are in crisis, cannot cope anymore, or feel completely overwhelmed,
-        - the main focus is their emotional wellbeing or safety, not a campus fact or simple exam stress.
+      Use this flow when:
+      - the user explicitly mentions suicidal thoughts, wanting to die, or not wanting to live anymore,
+      - the user describes self-harm (hurting themselves) or wanting to hurt themselves,
+      - the user says they are in crisis, cannot cope anymore, or feel completely overwhelmed,
+      - the main focus is their emotional wellbeing or safety, not a campus fact or simple exam stress.
 
-        Behaviour:
-        - Do NOT try to diagnose, give therapy, or "solve" the situation.
-        - Make clear that CampusCompass cannot support with mental health or crisis care.
-        - Encourage the user to reach out to real people and professional help.
-        - Always mention:
-          - 112 for any emergency or immediate danger.
-          - 113 Suicide Prevention (phone 113 or their website) for suicidal thoughts.
-        - End with a short, compassionate line, for example that they do not have to go
-          through this alone and that you hope things will get better.
+      Behaviour:
+      - Do NOT try to diagnose, give therapy, or "solve" the situation.
+      - Make clear that CampusCompass cannot support with mental health or crisis care.
+      - Encourage the user to reach out to real people and professional help.
+      - Always mention:
+        - 112 for any emergency or immediate danger.
+        - 113 Suicide Prevention (phone 113 or their website) for suicidal thoughts.
+      - End with a short, compassionate line, for example that they do not have to go
+        through this alone and that you hope things will get better.
 
-        This flow should be chosen even if the message also mentions campus or studies,
-        when there are clear crisis or self-harm signals. Safety has priority over
-        normal informational tasks.
-      steps:
-        - action: utter_severe_mental_health_support
-          next: END
+      This flow should be chosen even if the message also mentions campus or studies,
+      when there are clear crisis or self-harm signals. Safety has priority over
+      normal informational tasks.
+    steps:
+      - action: utter_severe_mental_health_support
+        next: END
 
-    mental_health_light_flow:
-      description: |
-        Handles messages where the user talks about feeling bad mentally,
-        but there are no clear signs of crisis, self-harm, or suicidal thoughts.
+  mental_health_light_flow:
+    description: |
+      Handles messages where the user talks about feeling bad mentally,
+      but there are no clear signs of crisis, self-harm, or suicidal thoughts.
 
-        Use this flow when:
-        - the user says they feel down, lonely, anxious, stressed, or burned out,
-        - the user struggles emotionally, but does NOT mention self-harm or wanting to die,
-        - the main focus is their emotional wellbeing, but the situation does not seem immediately life-threatening.
+      Use this flow when:
+      - the user says they feel down, lonely, anxious, stressed, or burned out,
+      - the user struggles emotionally, but does NOT mention self-harm or wanting to die,
+      - the main focus is their emotional wellbeing, but the situation does not seem immediately life-threatening.
 
-        Behaviour:
-        - Do NOT try to diagnose, give therapy, or "solve" the situation.
-        - Make clear that CampusCompass cannot support with mental health care.
-        - Encourage the user to talk to someone they trust (friend, family, GP, study advisor).
-        - End with a short, compassionate line, for example that they do not have to go
-          through this alone and that you hope things will get better.
+      Behaviour:
+      - Do NOT try to diagnose, give therapy, or "solve" the situation.
+      - Make clear that CampusCompass cannot support with mental health care.
+      - Encourage the user to talk to someone they trust (friend, family, GP, study advisor).
+      - End with a short, compassionate line, for example that they do not have to go
+        through this alone and that you hope things will get better.
 
-        If at any point the user does mention self-harm, suicidal thoughts, or crisis,
-        the severe mental health flow should be used instead.
-      steps:
-        - action: utter_light_mental_health_support
-          next: END
+      If at any point the user does mention self-harm, suicidal thoughts, or crisis,
+      the severe mental health flow should be used instead.
+    steps:
+      - action: utter_light_mental_health_support
+        next: END
 
   # ---------------------------------------------------------------------------
   # CONTEXT-INCLUDED FLOWS
@@ -475,57 +474,6 @@ flows:
       - action: action_trigger_search
         next: END
 
-  public_transport_flow:
-    description: |
-      Handles questions about public transport to, from and around
-      campus: trains, buses and nearby stops/stations.
-
-      Typical examples:
-      - "How do I get to campus by train?"
-      - "Which station is closest to Huygens / Grotius / MM?"
-      - "Is there a bus stop near the University Library?"
-      - "How do I get from Nijmegen Central to campus?"
-      - "Which bus do I take to EOS?"
-
-      Use this flow when:
-      - the user explicitly talks about trains, buses, tram, OV, public
-        transport, or NS / Arriva,
-      - or they mention stations and stops such as Nijmegen Central,
-        Nijmegen Heyendaal, Heyendaalseweg, Huygens building bus stop,
-        UMC bus stop etc.,
-      - and their main intent is: which station/stop or which general
-        route to use with public transport.
-
-      IMPORTANT:
-      - Do NOT use this flow for detailed walking directions between
-        two campus buildings (for example "how do I walk from MM to
-        Huygens?") — those should be handled by the existing route
-        / navigation flows that generate on-campus directions.
-      - Do NOT try to give live departure times or real-time delays.
-        You can only describe general lines, stops and typical routes
-        as documented.
-
-      Behaviour:
-      - Use action_trigger_search to consult campus transport
-        information and building/location docs.
-      - Answer with:
-        - the relevant station(s) or bus stop(s),
-        - the general line or direction (if documented),
-        - and one or two short sentences to orient the user
-          (for example: "From Nijmegen Central, take the train to
-          Nijmegen Heyendaal, then walk to Huygens in about 5 minutes.")
-
-      If the docs do not contain concrete public transport details
-      for that building or route:
-      - say clearly that the exact public transport connection is not
-        specified in the available information,
-      - avoid guessing line numbers or departure times,
-      - suggest checking the Dutch public transport planner (for
-        example 9292 or NS) for real-time route advice.
-    steps:
-      - action: action_trigger_search
-        next: END
-
   opening_hours_flow:
     description: |
       Handles questions where the primary intent is to know WHEN a
@@ -871,68 +819,175 @@ flows:
                 next: END
 
   # ---------------------------------------------------------------------------
-  # RASA DEFAULT PATTERN OVERRIDES
+  # TRANSPORT FLOWS
+  # ---------------------------------------------------------------------------
+
+  route_description_flow:
+    description: |
+      Handles on-campus directions between two campus buildings or places
+      when the user wants to WALK or CYCLE.
+
+      WHEN TO USE THIS FLOW
+      - The user clearly indicates a walking or cycling route, with words like
+        "on foot", "by foot", "walking", "walk", "by bike", "cycling", "fiets".
+      - OR the slot travel_mode_hint has already been collected as "walk"
+        or "bike" by travel_mode_clarification_flow.
+      - The focus is a route between campus buildings / places
+        (e.g. "How do I get from MM to Huygens?", "How do I walk to EOS?").
+
+      RELATION TO PUBLIC TRANSPORT
+      - If the user explicitly talks about trains, buses, OV, stations or stops,
+        this flow should NOT be used; in that case, use public_transport_flow.
+      - If the user only mentions buildings (e.g. "How do I get to EOS?")
+        and does NOT mention walking/cycling or public transport, the assistant
+        should FIRST start travel_mode_clarification_flow to ask for the
+        preferred mode, instead of guessing.
+
+      SLOT BEHAVIOUR
+      - By the time this flow runs, source_building_raw and/or target_building_raw
+        may already be filled from a previous user message (for example in
+        travel_mode_clarification_flow).
+      - This flow should reuse those slots where possible and only ask the user
+        for missing information.
+      - After giving the route, the custom action action_clear_route_context
+        should reset the route-related slots so the assistant does not stay
+        stuck in a previous route context.
+
+    steps:
+      - collect: source_building_raw
+        ask_before_filling: false
+      - collect: target_building_raw
+        ask_before_filling: false
+      - action: action_get_route_description
+      - action: action_clear_route_context
+        next: END
+
+  travel_mode_clarification_flow:
+    description: |
+      Clarifies whether the user wants to WALK/CYCLE or use PUBLIC TRANSPORT
+      when the mode is not obvious from their question.
+
+      WHEN TO USE THIS FLOW
+      - The user asks how to get to or from one or more campus buildings
+        (e.g. "How do I get to EOS?", "How do I get from MM to HG?"),
+        BUT they do NOT clearly mention walking, cycling or public transport.
+      - In that case, the assistant MUST NOT guess a mode (walk vs OV).
+        Instead, it should start this flow.
+
+      SLOT BEHAVIOUR
+      - Before asking about the travel mode, this flow tries to silently fill
+        source_building_raw and target_building_raw from the user's message,
+        using entity/slot mappings.
+      - Because ask_before_filling is false for these slots, the user is NOT
+        asked extra questions here; existing values are simply reused.
+      - This ensures that a question like "How do I get to EOS?" already
+        populates target_building_raw = "EOS", so that route_description_flow
+        or public_transport_flow can reuse it later.
+
+      BEHAVIOUR
+      - The flow then collects the slot travel_mode_hint by asking a question like:
+        "Do you want to walk, cycle, or use public transport (bus/train)?"
+        (implemented via utter_ask_travel_mode_hint in the domain).
+      - After travel_mode_hint is filled, the flow ends.
+      - The next user message (often a short answer like "by foot" or "by bus")
+        allows the patterns to route to:
+        - route_description_flow when travel_mode_hint = "walk" or "bike",
+        - public_transport_flow when travel_mode_hint = "public_transport".
+
+    steps:
+      - collect: source_building_raw
+        ask_before_filling: false
+      - collect: target_building_raw
+        ask_before_filling: false
+      - collect: travel_mode_hint
+        ask_before_filling: true
+        next: END
+
+  public_transport_flow:
+    description: |
+      Handles questions about PUBLIC TRANSPORT (OV) to, from and around campus:
+      trains, buses and nearby stations/stops.
+
+      WHEN TO USE THIS FLOW
+      - The user explicitly talks about public transport concepts, such as:
+        "train", "bus", "tram", "OV", "NS", "Arriva", "station", "bus stop",
+        line numbers, etc.
+      - OR the slot travel_mode_hint is "public_transport", for example after
+        travel_mode_clarification_flow.
+      - Typical examples:
+        - "How do I get to campus by train?"
+        - "Which bus should I take to EOS?"
+        - "Which station is closest to Huygens?"
+        - "Is there a bus stop near the University Library?"
+        - "How do I get from Nijmegen Central to campus?"
+
+      RELATION TO WALKING ROUTES
+      - Do NOT use this flow for detailed walking directions between two
+        campus buildings when the user just wants an on-campus walking route
+        (e.g. "how do I walk from MM to Huygens?"); use route_description_flow.
+      - However, you may describe short walking segments that are part of a
+        public-transport route (e.g. "From Nijmegen Heyendaal station, walk
+        about 5 minutes to Huygens").
+
+      SLOT / STATE CLEANUP
+      - This flow may also use source_building_raw and target_building_raw
+        to ground its advice, but after answering it should not leave the
+        conversation stuck in that route context.
+      - The custom action action_clear_route_context is called at the end to:
+        - reset travel_mode_hint to "unknown",
+        - clear source_building_raw and target_building_raw (and optionally
+          copy them to previous-* slots if you use those).
+
+      BEHAVIOUR
+      - Use action_trigger_search to consult campus transport information and
+        building/location documents via enterprise search.
+      - Answer with:
+        - the relevant station(s) or bus stop(s),
+        - the general line or direction (if documented),
+        - and one or two short sentences to orient the user:
+          for example: "From Nijmegen Central, take the train to Nijmegen
+          Heyendaal. From there, it is about a 5-minute walk to Huygens."
+      - Do NOT provide live departure times or delays.
+      - If the docs do not contain concrete public transport details for that
+        building or route:
+        - say clearly that the exact connection is not specified,
+        - avoid guessing line numbers or timetables,
+        - suggest using a Dutch public-transport planner (e.g. 9292 or NS)
+          for real-time route advice.
+
+    steps:
+      - action: action_trigger_search
+      - action: action_clear_route_context
+        next: END
+
+  # ---------------------------------------------------------------------------
+  # RASA DEFAULT PATTERN OVERRIDES (MINIMAL / LOW-NOISE)
   # ---------------------------------------------------------------------------
 
   pattern_clarification:
     description: |
       Conversation repair flow for ambiguous requests that could match
-      multiple flows.
-      This override removes menus that list flow names. Instead, the bot
-      asks a short clarifying question in plain language, for example:
-      whether the user needs directions, an abbreviation explanation, or
-      a simple campus fact such as opening hours.
-
-      Use this flow only when the main issue is that the assistant is
-      not sure which flow (for example abbreviation_flow vs a thematic
-      search flow vs pattern_search) best fits the user message. It
-      should normally correspond to the "first clarification node" in
-      the same decision pattern as fallback_flow:
-      - If the user then clarifies their request, pick the appropriate
-        content flow and answer (for example abbreviation_flow for
-        "What does MM 01.029 mean?" or food_and_drink_flow for
-        "Where can I eat near MM?").
-      - If the user remains unclear after this clarification, subsequent
-        unclear messages should be handled by fallback_flow and the
-        fallback_attempts logic, eventually leading to the final
-        utter_cannot_handle message.
-      Do NOT use pattern_clarification repeatedly to ask the user the
-      same type of clarification question.
+      multiple flows. This override keeps behaviour simple and low-noise:
+      it shows one short clarification message and then stops.
+      Normal flows can then handle the clarified question.
     steps:
       - action: utter_clarification_options_rasa
         next: END
 
   pattern_cannot_handle:
     description: |
-      Conversation repair flow for situations where the assistant cannot
-      handle the request or cannot find a reliable answer from the
-      campus information.
-      This override responds with the general campus-specific fallback
-      message and does not show any technical details to the user.
-
-      Conceptually, this flow corresponds to the "final leaf" in the
-      same clarification decision tree used by fallback_flow:
-      - It should be used when there is no reliable answer after
-        reasonable clarification attempts, or when EnterpriseSearchPolicy
-        could not find any relevant campus information for the question.
-      - It should NOT be used as the first response to a slightly unclear
-        campus question; those should first go through either
-        pattern_clarification (for intent/flow ambiguity) or
-        fallback_flow (for unclear content) before eventually reaching
-        this final "cannot help" stage.
+      Final fallback when the assistant really cannot handle the request
+      or find a reliable answer. This override sends one generic
+      cannot-handle message and then stops.
     steps:
       - action: utter_cannot_handle
         next: END
 
   pattern_chitchat:
     description: |
-      Conversation repair flow for off-topic interactions that should
-      not disrupt the main conversation.
-      This override mirrors the behaviour of smalltalk_flow: it gives a
-      short, friendly response and then stops.
-      It should not be used for campus questions, but only when the user
-      is clearly engaging in casual smalltalk without a concrete campus
-      request.
+      Repair flow for off-topic smalltalk. This override mirrors the
+      standalone smalltalk behaviour: it sends one short, friendly
+      response and then ends without starting any flow.
     steps:
       - action: utter_free_chitchat_response
         next: END
@@ -940,60 +995,36 @@ flows:
   pattern_cancel_flow:
     description: |
       Flow that runs when a running flow is cancelled.
-      This override simply acknowledges that the previous task is
-      stopped and does not continue it.
-      It does not introduce extra clarification or fallback behaviour;
-      those are handled by fallback_flow and related patterns.
+      This override silently cancels the current flow without sending
+      an extra user-facing message, so it does not clutter the dialogue.
     steps:
       - action: action_cancel_flow
-      - action: utter_flow_cancelled_rasa
         next: END
 
   pattern_completed:
     description: |
       Flow that runs after a user-initiated use case is completed.
-      This override does not send an extra message and simply ends the
-      current turn, so the user is not repeatedly asked if they need
-      anything else.
-      The assistant can still respond to any new user message normally
-      using the appropriate flow (for example a thematic search flow or
-      pattern_search), but this pattern itself stays silent and acts
-      as a neutral end node in the decision tree.
+      This override is completely silent and simply ends the current
+      turn. It does not ask whether the user needs anything else.
     steps:
       - noop: true
         next: END
 
   pattern_continue_interrupted:
     description: |
-      Conversation repair flow for when a previous flow was interrupted
-      and the system needs to know if it should continue that flow or
-      move on.
-      This override asks the user in simple terms if they want to
-      continue the earlier task. If yes, it resumes; if not, it cancels.
-      It does not change the general clarification and fallback logic,
-      which is still governed by fallback_flow and pattern_cannot_handle.
+      Conversation repair flow for when a previous flow was interrupted.
+      In this minimal override, the assistant does NOT ask the user
+      whether they want to continue. Instead, it simply cancels any
+      interrupted flows and ends silently, so no extra messages appear.
     steps:
-      - collect: continue_interrupted_flow_confirmation
-        description: "If the user wants to continue the previous task, fill this slot with true. If not, fill it with false."
-        next:
-          - if: slots.continue_interrupted_flow_confirmation
-            then:
-              - action: action_continue_interrupted_flow
-                next: END
-          - else:
-              - action: action_cancel_interrupted_flows
-                next: END
+      - action: action_cancel_interrupted_flows
+        next: END
 
   pattern_correction:
     description: |
-      Conversation repair flow for managing user corrections of previous
-      inputs (for example, changing a building name or code).
-      This override updates the relevant slots and briefly confirms the
-      correction.
-      It should be used when the user clearly indicates that earlier
-      information was wrong, not for general confusion or unclear
-      questions (those are handled by fallback_flow and
-      pattern_clarification).
+      Flow for applying explicit user corrections of previous inputs
+      (for example, a wrong building code). This override updates the
+      relevant slots and gives one short confirmation message.
     steps:
       - action: action_correct_flow_slot
       - action: utter_corrected_previous_input
@@ -1001,35 +1032,27 @@ flows:
 
   pattern_human_handoff:
     description: |
-      Conversation repair flow for scenarios where a user asks to be
-      handed off to a human.
-      This override explains that a human handoff is not available and
-      offers to help further as CampusCompass instead.
-      It does not affect the general fallback decision tree; if the user
-      keeps asking for something outside the bot's scope, the behaviour
-      should still align with fallback_flow and pattern_cannot_handle.
+      Flow for scenarios where a user asks to be handed off to a human.
+      This override sends one short message explaining that a human
+      handoff is not available and then stops.
     steps:
       - action: utter_human_handoff_not_available
         next: END
 
   pattern_internal_error:
     description: |
-      Conversation repair flow for informing users about internal
-      errors.
-      This override gives a simple apology and suggests trying again
-      later, without exposing technical details.
-      It is separate from normal clarification behaviour: use this only
-      for real internal errors, not for misunderstood campus questions.
+      Flow for reporting internal errors in a user-friendly way.
+      This override sends one simple apology / try-again-later message
+      and then ends, without exposing technical details.
     steps:
       - action: utter_internal_error_rasa
         next: END
 
   pattern_repeat_bot_messages:
     description: |
-      Conversation repair flow for repeating the last assistant messages
-      when the user indicates that they did not hear or see them.
-      This does not change the interpretation of the user's intent or
-      the fallback logic; it only repeats what was already said.
+      Flow for repeating the last assistant messages when the user did
+      not see or hear them. This override just calls a repeat action
+      and then ends.
     steps:
       - action: action_repeat_bot_messages
         next: END
@@ -1037,10 +1060,8 @@ flows:
   pattern_restart:
     description: |
       Flow for restarting the conversation from scratch.
-      This override simply calls the restart action.
-      After a restart, the normal flow and fallback decision tree
-      (thematic flows, pattern_search, abbreviation_flow, etc.) applies
-      again from a clean state.
+      This override calls the standard restart action and then ends.
+      After this, your normal flows run again from a clean state.
     steps:
       - action: action_restart
         next: END
@@ -1048,11 +1069,9 @@ flows:
   pattern_session_start:
     description: |
       Flow that is used to start a new conversation session.
-      This override runs the standard session start action.
-      After this, the assistant will choose between the normal flows
-      (such as greet_flow, abbreviation_flow, the thematic search flows,
-      pattern_search, and the fallback-related patterns) based on the
-      user input.
+      This override runs the standard session start action and then
+      ends, so your own greet / welcome flows can take over.
     steps:
       - action: action_session_start
         next: END
+

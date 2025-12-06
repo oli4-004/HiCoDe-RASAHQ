@@ -1,6 +1,11 @@
 version: "3.1"
 
 patterns:
+
+  # ---------------------------------------------------------------------------
+  # BUILDINGS & ROOM CODES
+  # ---------------------------------------------------------------------------
+
   building_and_room_code_patterns:
     description: |
       This section describes how Radboud University building abbreviations
@@ -216,6 +221,10 @@ patterns:
         the patterns above, treat them as unclear input and prefer
         fallback_flow over abbreviation_flow.
 
+  # ---------------------------------------------------------------------------
+  # FOOD, DRINKS & SOCIAL SPACES
+  # ---------------------------------------------------------------------------
+
   food_and_drink_patterns:
     description: |
       This section describes how to recognise user questions about food,
@@ -313,6 +322,10 @@ patterns:
       - "Are there any campus pubs apart from Cultuurcafé?"
       - "Can I drink alcohol in the afternoon in MM?"
 
+  # ---------------------------------------------------------------------------
+  # ASSOCIATIONS, UMBRELLAS, EVENTS, PRAYER ROOMS
+  # ---------------------------------------------------------------------------
+
   study_association_patterns:
     description: |
       This section explains how to recognise questions about faculty
@@ -339,12 +352,12 @@ patterns:
         → use study_association_flow.
       - If they ask where associations organise BORRELS or EVENTS:
         - For bar-like events → alcohol_and_bar_flow.
-        - For general event spaces (Theaterzaal C, Aula, etc.) →
+        - For general event spaces (Theaterzaal C, Aula, etc.) → 
           event_and_activity_flow.
       - If they ask "What is a study association?" in a generic way
         without referencing specific campus docs:
         - The LLM may answer briefly without using search, but
-          study_association_flow is still a reasonable choice to keep
+        - study_association_flow is still a reasonable choice to keep
           behaviour consistent.
 
       EXAMPLES (→ study_association_flow)
@@ -417,7 +430,7 @@ patterns:
       - If they ask conceptual/theological questions ("how should I
         pray", "which religion is this room for"):
         - That is not pure campus-facts; answer briefly and carefully,
-          but prayer_room_flow can still be used because the facilities
+        - but prayer_room_flow can still be used because the facilities
           are campus-based.
 
       EXAMPLES (→ prayer_room_flow)
@@ -463,6 +476,189 @@ patterns:
       - "Where is the Aula for graduation ceremonies?"
       - "Where do associations organise larger events?"
 
+    # ---------------------------------------------------------------------------
+  # TRANSPORT & ROUTES (WALK / BIKE / PUBLIC TRANSPORT)
+  # ---------------------------------------------------------------------------
+
+  route_patterns:
+    description: |
+      Detect when the user is asking how to get from one campus place to another,
+      or how long it takes to travel between two places on or around campus.
+
+      INTENTS:
+      - Use the intent ask_route_description when the user mainly wants directions
+        in words between two locations (for example "How do I get from A to B?").
+      - Use the intent ask_travel_time when the user mainly wants to know how long
+        it takes (walking/bus/bike/car) between two locations.
+
+      HIGH-LEVEL DECISION:
+      - If the user clearly talks about WALKING or CYCLING, and mentions campus
+        buildings/places, treat it as an on-campus route:
+        → use ask_route_description and route_description_flow.
+      - If the user clearly talks about PUBLIC TRANSPORT (train, bus, OV, station,
+        stop, line numbers, etc.), treat it as an OV question:
+        → use public_transport_flow.
+      - If the user mentions buildings/places but does NOT clearly specify
+        walking/cycling or public transport ("How do I get to EOS?"):
+        → start travel_mode_clarification_flow first, so the assistant can ask
+          whether they prefer walking/cycling or OV.
+
+      RAW BUILDING SLOTS:
+      - source_building_raw and target_building_raw:
+        These store the raw building references exactly as the user phrases them,
+        for example "HG", "COM B", "tandheelkunde", "the library", "MM", "EOS".
+      - These raw slots are later read by a custom action (action_get_route_description),
+        which internally normalizes them using the building documentation and the LLM.
+        The patterns do NOT need to worry about canonical names or external APIs.
+
+      STRICT RULES FOR RAW SLOTS:
+      - The slots source_building_raw and target_building_raw MUST ONLY contain
+        building names that the user explicitly mentioned in their own words
+        (in the current or previous user messages).
+      - Do NOT invent or guess extra buildings, bus stops or locations based on
+        your knowledge base. For example, do NOT set target_building_raw to
+        "Erasmus building" just because you know that is the nearest bus stop for
+        EOS, if the user never wrote "Erasmus".
+      - If the user does not mention a starting point at all (e.g. "How do I
+        get to EOS?"), only fill target_building_raw = "EOS" and leave
+        source_building_raw empty so the flow can ask where the user is now.
+      - If the user does NOT explicitly name their starting building, you MUST
+        leave source_building_raw empty. Do NOT invent values like "here",
+        "my location", "your location", "current location", or "user_location"
+        for any building slot.
+
+      BUILDING NAMES AND CODES:
+      - Treat Radboud building names and codes as 'building', for example:
+        Comenius, Comenius A, Comenius B, COM, COM A, COM B, CC, Collegezalencomplex,
+        Erasmus, Erasmus building, Huygens, HG, Maria Montessori, MM, Dentistry,
+        Tandheelkunde, UB (University Library), EOS, etc.
+      - The knowledge base contains documents describing these buildings and their
+        abbreviations. Use entities to mark obvious building names and codes, but
+        keep the slot values as close as possible to what the user wrote.
+      - If you are unsure, still try to map obvious campus building names to the
+        building entity and to the appropriate slots, without inventing new names.
+
+      FLOW BEHAVIOUR (route_description_flow):
+      1) First, the flow collects source_building_raw and target_building_raw.
+         - If the user mentions both buildings in the same message,
+           you should extract them directly into these raw slots and avoid
+           asking a follow-up question.
+           Example:
+             "I really need to go to COM for an exam but I'm still at Erasmus"
+             => source_building_raw = "Erasmus", target_building_raw = "COM".
+         - If only one building is given (for example "How do I get to COM?"),
+           fill target_building_raw = "COM" and leave source_building_raw empty,
+           so the flow can ask where the user is now.
+         - If the user only mentions the source ("I'm at MM, how can I get there later?"),
+           set source_building_raw = "MM" and keep target_building_raw empty so the flow
+           can ask for the destination.
+
+      2) After the raw slots are filled, the flow calls action_get_route_description.
+         - This custom action:
+           - reads source_building_raw and target_building_raw,
+           - normalizes them with the building documentation and an LLM,
+           - calls an internal routing API (Google Maps) for walking directions,
+           - and returns a short, readable explanation to the user.
+         - The patterns do NOT need to perform any extra search or normalization.
+
+      DECIDING SOURCE VS TARGET:
+      - For phrases like "from A to B":
+        source_building_raw = A, target_building_raw = B.
+      - For phrases like "to B but I'm (still) at A":
+        target_building_raw = B, source_building_raw = A.
+        Example: "I really need to go to COM for an exam but I'm still at Erasmus"
+        => source_building_raw = "Erasmus", target_building_raw = "COM".
+      - For "back to A" / "return to A":
+        - If there was a previous route from A to B in this conversation, then a follow-up
+          "How do I get back to A?" should swap the buildings:
+          source_building_raw = previous target, target_building_raw = previous source.
+
+      FOUR COMMON PHRASING CASES:
+      1) The outward trip is mentioned explicitly:
+         - "from A to B"
+         => source_building_raw = A, target_building_raw = B.
+      2) Only the source is mentioned:
+         - "I'm at A and I have an exam later, how can I get there?"
+         => source_building_raw = A, target_building_raw = "" (empty).
+      3) Only the destination is mentioned:
+         - "How do I get to EOS?"
+         => target_building_raw = "EOS", source_building_raw = "" (empty).
+         NEVER invent a fake origin such as "my location" or "user_location".
+      4) No buildings are repeated, but the user refers to a previous route:
+         - If the user says "And how do I get back?" after a route from A to B,
+           reuse the previous buildings, swap them, and set
+           source_building_raw = previous target, target_building_raw = previous source.
+         - The "previous" buildings are stored in the slots
+           prev_source_building_raw and prev_target_building_raw by the custom
+           action action_clear_route_context, so later turns like
+           "How do I get back?" can still access them.
+
+      If you cannot clearly decide, still set the buildings based on the most
+      likely reading of the user's message, but never fabricate buildings that
+      were not mentioned.
+
+      WHEN NOT TO USE ROUTE_DESCRIPTION_FLOW:
+      - If the question is primarily about public transport lines or which
+        bus/train to take to campus, prefer public_transport_flow.
+      - If the user is only asking for opening hours or what is inside
+        a building, use the existing thematic flows or pattern_search instead.
+
+      SLOT SETTING EXPECTATIONS:
+      - For every route or travel-time request, fill:
+        - source_building_raw and target_building_raw from the user's wording.
+        - travel_mode_hint (see below), based ONLY on what the user actually says.
+      - These slots may already be partially filled by travel_mode_clarification_flow;
+        reuse existing values instead of asking again when possible.
+
+      TRAVEL MODE HINT:
+      - Always set the slot travel_mode_hint to the user's preferred mode if they clearly mention it:
+        - Words like "on foot", "by foot", "walking", "walk" → travel_mode_hint = "walk".
+        - Words like "by bike", "bicycle", "cycling", "fiets" → travel_mode_hint = "bike".
+        - Words like "public transport", "bus", "train", "OV", "NS", "Arriva",
+          "station", "bus stop" → travel_mode_hint = "public_transport".
+      - If the user only mentions campus buildings and does NOT mention any mode
+        (no walking/cycling words and no OV words, e.g. "How do I get to EOS?"),
+        you MUST set travel_mode_hint = "unknown" and prefer
+        travel_mode_clarification_flow to ask the user for their preference.
+      - If you really cannot tell the mode from the wording, set travel_mode_hint = "unknown".
+
+  travel_mode_clarification_patterns:
+    description: |
+      This section explains when to use **travel_mode_clarification_flow** to
+      ask the user whether they want to WALK/CYCLE or use PUBLIC TRANSPORT.
+
+      WHEN TO USE THIS FLOW:
+      - The user asks how to get to or from one or more campus buildings,
+        but does NOT clearly specify a travel mode.
+        Examples:
+        - "How do I get to EOS?"
+        - "How do I get from MM to Huygens?"
+        - "What is the best way to go from GR to EOS?"
+      - In these cases, you MUST NOT guess the mode (walk vs OV).
+        Instead, start travel_mode_clarification_flow so the assistant can ask:
+        "Do you want to walk, cycle, or use public transport (bus/train)?"
+
+      SLOT BEHAVIOUR:
+      - Before asking about the travel mode, this flow should silently fill
+        source_building_raw and target_building_raw from the current user
+        message wherever possible (no extra questions).
+      - Then the flow collects the travel_mode_hint slot explicitly.
+      - The user’s answer (e.g. "by foot", "by bike", "by bus") should update:
+        - travel_mode_hint = "walk" / "bike" / "public_transport" as appropriate.
+      - After this flow ends, a short follow-up like "by foot" or "by bus"
+        will allow the next turn to go directly to:
+        - route_description_flow when travel_mode_hint is "walk" or "bike".
+        - public_transport_flow when travel_mode_hint is "public_transport".
+
+      RELATION TO OTHER FLOWS:
+      - If the user already clearly specified a mode in the original question
+        ("How do I walk from MM to Huygens?", "Which bus to EOS?"), do NOT use
+        travel_mode_clarification_flow; go directly to the matching flow.
+      - If the user changes their mind, for example:
+        - First: "Which bus should I take to EOS?" → public_transport_flow.
+        - Then: "I mean by foot." → treat the new message as a fresh query:
+          travel_mode_hint = "walk" and use route_description_flow.
+
   public_transport_patterns:
     description: |
       This section describes how to recognise questions about public
@@ -482,17 +678,57 @@ patterns:
       - Ask how to get from a station to a campus building:
         - "How do I get from Nijmegen Central to Huygens?"
         - "What is the nearest station for Grotius?"
+      - Ask explicitly for "public transport" or "OV" without naming
+        trains or buses individually.
 
-      DECISION LOGIC
+      DECISION LOGIC AND PRIORITY:
 
       - If the main focus is WHICH STATION / STOP / GENERAL OV ROUTE:
         → use public_transport_flow.
+      - You should ONLY choose public_transport_flow when the user
+        explicitly mentions public transport concepts such as:
+        - train, bus, tram, OV, NS, Arriva,
+        - station, stop, bus stop, platform, line/route numbers,
+        - "public transport" or "OV".
+      - If the user only says "How do I get to <building>?" or
+        "How do I get from <building A> to <building B>?" without any
+        explicit public transport words, do NOT guess OV:
+        → prefer travel_mode_clarification_flow first, then route_description_flow
+          or public_transport_flow once travel_mode_hint is known.
       - Do NOT use this flow for detailed walking directions between
         two campus buildings (e.g. "How do I walk from MM to Huygens?").
-        Those should be handled by your route/navigation flows if
-        defined elsewhere.
+        Those should be handled by route_description_flow.
+
+      TRAVEL MODE HINT FOR PUBLIC TRANSPORT:
+
+      - Whenever you decide that public_transport_flow is appropriate,
+        you MUST set travel_mode_hint = "public_transport".
+      - Example mappings:
+        - "Which bus should I take to EOS?" → travel_mode_hint = "public_transport".
+        - "How do I get from Nijmegen Centraal to Huygens by train?"
+          → travel_mode_hint = "public_transport".
+      - If the user later corrects themselves with something like
+        "I mean by foot" or "I want to walk", the new message should
+        update travel_mode_hint to "walk" and be routed to
+        route_description_flow instead.
+
+      RELATION TO ROUTE DESCRIPTION:
+
+      - Mixed questions can happen, for example:
+        - "How do I get from Nijmegen Central to EOS and then walk to MM?"
+      - In such cases, choose the flow that best matches the *first or main*
+        request in the user's message:
+        - If they primarily talk about the train/bus part, prefer public_transport_flow.
+        - If they primarily talk about the on-campus walking part, prefer
+          route_description_flow (possibly after travel_mode_clarification_flow).
       - The assistant must not give live departure times or delays,
-        only general routes and typical stops as described in docs.
+        only general routes and typical stops as described in the docs.
+
+      STATE CLEANUP:
+      - After public_transport_flow has answered, the custom action
+        action_clear_route_context resets travel_mode_hint to "unknown"
+        and clears source_building_raw and target_building_raw, so later
+        messages start from a fresh route context.
 
       EXAMPLES (→ public_transport_flow)
 
@@ -500,6 +736,11 @@ patterns:
       - "Is there a bus stop near the University Library?"
       - "How do I get from Nijmegen Central to campus?"
       - "Which bus line should I take to EOS?"
+      - "What OV should I use to get from the city centre to MM?"
+
+  # ---------------------------------------------------------------------------
+  # OPENING HOURS, OTHER FACILITIES, STUDY SPOTS
+  # ---------------------------------------------------------------------------
 
   opening_hours_patterns:
     description: |
@@ -573,7 +814,7 @@ patterns:
       - These are parking / mobility questions, not route directions:
         they are about where to park and what conditions apply.
 
-      BICYCLES / BIKE PARKING (NEW)
+      BICYCLES / BIKE PARKING
 
       - If the user mentions "bike parking", "bicycle shed", "fiets",
         "fiets parkeren", "fietsenstalling", "bike racks", "fietsrekken",
@@ -621,7 +862,7 @@ patterns:
       - "Is there daycare on campus?"
       - "Where can I park if I go to Gymnasion?"
       - "Is the parking garage by EOS 24/7?"
-      - "Where can I park my bike at MM?" (NEW)
+      - "Where can I park my bike at MM?"
       - "Is there a bike parking spot near the library?"
 
   study_spots_patterns:
@@ -652,17 +893,17 @@ patterns:
       DECISION LOGIC
       
       - If the main purpose of the question is to find a place to
-        study or work (quiet or group), choose **study_spots_flow**.
+        study or work (quiet or group), choose study_spots_flow.
       - If the main purpose is to know WHEN such a place is open
         ("What are the UB opening hours on Sunday?"), prefer
-        **opening_hours_flow** instead, even if the location is a
+        opening_hours_flow instead, even if the location is a
         study space.
       - If the main purpose is food or drinks ("Where can I get coffee
-        near the library?"), prefer **food_and_drink_flow**.
+        near the library?"), prefer food_and_drink_flow.
       - If the question mixes topics, choose the flow that best matches
         the user's core goal (for example, if they say "I want to study
         and get coffee near MM", you may still use study_spots_flow and
-        mention both study and coffee options as documented).
+        mention both study and coffee options as documented.
       
       EXAMPLES
       
@@ -671,10 +912,14 @@ patterns:
       - "What are good study spots in Maria Montessori?"
       - "Can I study in Huygens if I am not a science student?"
 
+  # ---------------------------------------------------------------------------
+  # SMALLTALK & MENTAL HEALTH SAFETY
+  # ---------------------------------------------------------------------------
+
   smalltalk_patterns:
     description: |
       This section explains how to recognise off-topic smalltalk and route
-      it to **smalltalk_flow** (or, when triggered by Rasa repair logic,
+      it to smalltalk_flow (or, when triggered by Rasa repair logic,
       to pattern_chitchat).
       
       WHAT COUNTS AS SMALLTALK:
@@ -717,52 +962,52 @@ patterns:
       If the user continues with a concrete campus question after smalltalk,
       subsequent turns should use the normal content flows again.
 
-    mental_health_patterns:
-      description: |
-        This section explains when to route a message to **mental_health_severe_flow**
-        or **mental_health_light_flow** instead of normal campus flows.
+  mental_health_patterns:
+    description: |
+      This section explains when to route a message to mental_health_severe_flow
+      or mental_health_light_flow instead of normal campus flows.
 
-        TREAT AS SEVERE MENTAL HEALTH / CRISIS WHEN:
-        - The user talks about wanting to die, not wanting to live, or suicidal thoughts:
-          - "I don't want to live anymore", "I want to end it", "I am suicidal".
-        - The user mentions self-harm or harming themselves:
-          - "I cut myself", "I want to hurt myself", "I hurt myself on purpose".
-        - The user says they are in crisis or completely overwhelmed emotionally:
-          - "I can't cope anymore", "everything is too much", "I am really not okay".
-        - The message is mainly about very severe mental health problems, such as
-          deep depression, intense anxiety, panic attacks, burnout, or feeling unsafe
-          with themselves (for example: afraid they might hurt themselves).
+      TREAT AS SEVERE MENTAL HEALTH / CRISIS WHEN:
+      - The user talks about wanting to die, not wanting to live, or suicidal thoughts:
+        - "I don't want to live anymore", "I want to end it", "I am suicidal".
+      - The user mentions self-harm or harming themselves:
+        - "I cut myself", "I want to hurt myself", "I hurt myself on purpose".
+      - The user says they are in crisis or completely overwhelmed emotionally:
+        - "I can't cope anymore", "everything is too much", "I am really not okay".
+      - The message is mainly about very severe mental health problems, such as
+        deep depression, intense anxiety, panic attacks, burnout, or feeling unsafe
+        with themselves (for example: afraid they might hurt themselves).
 
-        TREAT AS LIGHT / NON-CRISIS MENTAL HEALTH WHEN:
-        - The user talks about feeling mentally unwell, but without clear crisis or self-harm signals:
-          - feeling down, lonely, anxious, insecure, homesick, or low energy.
-          - study stress, performance pressure, or feeling overwhelmed, but still coping.
-          - "I am not doing well mentally", "I feel really low", "I am struggling a lot",
-            as long as they do NOT mention wanting to die or hurt themselves.
-        - The main focus is emotional wellbeing, mood, or stress, but the situation does
-          not seem immediately life-threatening.
+      TREAT AS LIGHT / NON-CRISIS MENTAL HEALTH WHEN:
+      - The user talks about feeling mentally unwell, but without clear crisis or self-harm signals:
+        - feeling down, lonely, anxious, insecure, homesick, or low energy.
+        - study stress, performance pressure, or feeling overwhelmed, but still coping.
+        - "I am not doing well mentally", "I feel really low", "I am struggling a lot",
+          as long as they do NOT mention wanting to die or hurt themselves.
+      - The main focus is emotional wellbeing, mood, or stress, but the situation does
+        not seem immediately life-threatening.
 
-        PRIORITY OVER OTHER FLOWS:
-        - If there are clear suicidal, self-harm, or crisis signals, choose
-          **mental_health_severe_flow** even when the user also talks about studies or campus,
-          for example: "I am so done with my studies here, I want to end it".
-        - If the message is mainly about feeling mentally bad or emotionally overloaded
-          without self-harm or suicidal language, choose **mental_health_light_flow**.
-        - Do NOT route these messages to smalltalk_flow, pattern_chitchat, or fallback_flow.
-          Safety and signposting to real help always take priority over normal informational tasks.
+      PRIORITY OVER OTHER FLOWS:
+      - If there are clear suicidal, self-harm, or crisis signals, choose
+        mental_health_severe_flow even when the user also talks about studies or campus,
+        for example: "I am so done with my studies here, I want to end it".
+      - If the message is mainly about feeling mentally bad or emotionally overloaded
+        without self-harm or suicidal language, choose mental_health_light_flow.
+      - Do NOT route these messages to smalltalk_flow, pattern_chitchat, or fallback_flow.
+        Safety and signposting to real help always take priority over normal informational tasks.
 
-        BEHAVIOUR EXPECTATIONS (BOTH FLOWS):
-        - The assistant must NOT offer therapy, diagnoses, or detailed coping techniques.
-        - It must clearly say that CampusCompass cannot support with mental health care or crises,
-          and should encourage reaching out to real people.
-        - For severe situations, it should mention:
-          - 112 for immediate danger or emergencies.
-          - 113 Suicide Prevention for suicidal thoughts (phone 113 or their website),
-            given the Dutch context.
-        - For both severe and light situations, it is helpful to gently encourage informing
-          someone they trust (friend, family, GP, study advisor) and to add a compassionate line such as:
-          "you do not have to go through this alone" and "I hope things will get better".
+      BEHAVIOUR EXPECTATIONS (BOTH FLOWS):
+      - The assistant must NOT offer therapy, diagnoses, or detailed coping techniques.
+      - It must clearly say that CampusCompass cannot support with mental health care or crises,
+        and should encourage reaching out to real people.
+      - For severe situations, it should mention:
+        - 112 for immediate danger or emergencies.
+        - 113 Suicide Prevention for suicidal thoughts (phone 113 or their website),
+          given the Dutch context.
+      - For both severe and light situations, it is helpful to gently encourage informing
+        someone they trust (friend, family, GP, study advisor) and to add a compassionate line such as:
+        "you do not have to go through this alone" and "I hope things will get better".
 
-        If the message only mentions mild, everyday stress about studies or exams
-        ("I am stressed about my exam", "this is a bit overwhelming") but no clear mental health
-        or crisis language, then normal campus/help flows can be used instead of mental health flows.
+      If the message only mentions mild, everyday stress about studies or exams
+      ("I am stressed about my exam", "this is a bit overwhelming") but no clear mental health
+      or crisis language, then normal campus/help flows can be used instead of mental health flows.

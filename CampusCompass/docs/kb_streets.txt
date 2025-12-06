@@ -1,0 +1,29 @@
+=== OTHER NAMED CAMPUS STREETS (REFERENCE ONLY) ===
+
+These streets appear on the campus map but do not (in most cases) have separate Radboud
+University teaching buildings with their own KB entry.
+They are useful for routing and orientation.
+
+- WUNDTLAAN
+  Campus edge street north of the Science Park, connecting Heyendaalseweg and Toernooiveld.
+  Hosts the Max Planck Institute for Psycholinguistics (Wundtlaan 1) and student housing.
+
+- PLATOLAAN
+  Small street near Nijmegen Heyendaal station, connecting the southern end of Toernooiveld / F.C. Donderslaan to Driehuizerweg and the sports fields.
+
+- F.C. DONDERSLAAN
+  Street near the Donders Institute / Trigon side of campus, connecting Kapittelweg and Toernooiveld and leading towards Nijmegen Heyendaal station.
+
+- GERARD VAN SWIETENLAAN / VAN BEVERWIJCKLAAN / A. VAN LEEUWENHOEKLAAN / TH. CRAANENLAAN
+  Short streets in and around the Radboudumc medical campus between Geert Grooteplein, Philips van Leydenlaan and Reinier Postlaan.
+  Mainly host Radboudumc clinical and research buildings and student housing, rather than separate Radboud University teaching buildings.
+
+- REINIER POSTLAAN / PETRUS CAMPERLAAN / LAAN VAN SCHEUT
+  Perimeter streets around the Radboudumc campus and the Houtlaan / Park Heijendaal edge.
+  Useful as car and bus access routes and for identifying the medical and administrative boundary of the campus area.
+
+- WILLEM NUYENSLAAN / KWEKERIJWEG / DRIEHUIZERWEG / D'ALMARASWEG / ST. ANNASTRAAT
+  City streets at the outer edge of the campus map.
+  They define the transition from the Radboud campus to the surrounding Nijmegen neighbourhoods (Brakkenstein, St. Anna, Heijendaal) and give access to car parks and train/bus connections.
+
+This list is for context: for most student questions, routing will go via the main campus streets described in detail above.

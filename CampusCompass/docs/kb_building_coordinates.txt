@@ -1,0 +1,189 @@
+Aula
+Address: Comeniuslaan 2, 6525 HP Nijmegen, Netherlands
+Longitude: 5.85710040
+Latitude: 51.82042520
+
+Comenius building B
+Address: Comeniuslaan 4, 6525 HP Nijmegen, Netherlands
+Longitude: 5.85691450
+Latitude: 51.81962720
+
+Comenius building A
+Address: Comeniuslaan 6, 6525 HP Nijmegen, Netherlands
+Longitude: 5.85674780
+Latitude: 51.81895160
+
+Berchmanianum (Academiegebouw)
+Address: Houtlaan 4, 6525 XZ Nijmegen, Netherlands
+Longitude: 5.86616940
+Latitude: 51.81714650
+
+Collegezalencomplex (CC)
+Address: Mercatorpad 1, 6525 HS Nijmegen, Netherlands
+Longitude: 5.86439590
+Latitude: 51.81920960
+
+Thomas van Aquinostraat 1
+Address: Thomas van Aquinostraat 1, 6525 GD Nijmegen, Netherlands
+Longitude: 5.86427690
+Latitude: 51.81881910
+
+Maria Montessori building
+Address: Thomas van Aquinostraat 4, 6525 GD Nijmegen, Netherlands
+Longitude: 5.86235430
+Latitude: 51.81919850
+
+Spinoza building
+Address: Montessorilaan 3, 6525 HR Nijmegen, Netherlands
+Longitude: 5.86013200
+Latitude: 51.81958770
+
+Grotius building
+Address: Montessorilaan 10, 6525 HR Nijmegen, Netherlands
+Longitude: 5.85878260
+Latitude: 51.81907860
+
+Erasmus building
+Address: Erasmusplein 1, 6525 HT Nijmegen, Netherlands
+Longitude: 5.86580110
+Latitude: 51.81906130
+
+The Refter
+Address: Erasmusplein 3, 6525 HT Nijmegen, Netherlands
+Longitude: 5.86530600
+Latitude: 51.81904930
+
+Werf GWT / Central Warehouse
+Address: Erasmuslaan 5, 6525 GE Nijmegen, Netherlands
+Longitude: 5.86104510
+Latitude: 51.82108250
+
+Paviljoen
+Address: Erasmuslaan 9, 6525 GE Nijmegen, Netherlands
+Longitude: 5.86336130
+Latitude: 51.82074720
+
+Studentenkerk (University Student Church)
+Address: Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands
+Longitude: 5.86306560
+Latitude: 51.82075710
+
+University Library (UB)
+Address: Erasmuslaan 36, 6525 GG Nijmegen, Netherlands
+Longitude: 5.86536520
+Latitude: 51.81994620
+
+Parking garage Gymnasion (P7b)
+Address: Erasmuslaan, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86625500
+Latitude: 51.82016610
+
+Parking area P7a
+Address: Erasmuslaan, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86625500
+Latitude: 51.82016610
+
+Huygens building
+Address: Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86810320
+Latitude: 51.82433430
+
+Linnaeus building
+Address: Heyendaalseweg 137, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86842340
+Latitude: 51.82288850
+
+Elinor Ostrom building
+Address: Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86790860
+Latitude: 51.81865500
+
+Gymnasion (Radboud Sports Centre)
+Address: Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86790860
+Latitude: 51.81865500
+
+Experience Center Radboudumc
+Address: Geert Grooteplein 15, 6525 EZ Nijmegen, Netherlands
+Longitude: 5.86024990
+Latitude: 51.82417050
+
+Huize Heyendael
+Address: Geert Grooteplein Noord 9, 6525 EZ Nijmegen, Netherlands
+Longitude: 5.85909110
+Latitude: 51.82421230
+
+Study Center Radboudumc
+Address: Geert Grooteplein Noord 21, 6525 EZ Nijmegen, Netherlands
+Longitude: 5.86185560
+Latitude: 51.82491060
+
+Forum
+Address: Geert Grooteplein Zuid 41, 6525 GA Nijmegen, Netherlands
+Longitude: 5.86663660
+Latitude: 51.82372980
+
+Dentistry (Tandheelkunde)
+Address: Philips van Leydenlaan 25, 6525 EX Nijmegen, Netherlands
+Longitude: 5.85807350
+Latitude: 51.82142040
+
+Mercator III
+Address: Toernooiveld 1, 6525 ED Nijmegen, Netherlands
+Longitude: 5.86915970
+Latitude: 51.82202560
+
+Transitorium
+Address: Toernooiveld 5, 6525 ED Nijmegen, Netherlands
+Longitude: 5.87142440
+Latitude: 51.82376780
+
+HFML-FELIX
+Address: Toernooiveld 7, 6525 ED Nijmegen, Netherlands
+Longitude: 5.87080560
+Latitude: 51.82308660
+
+Nanolab
+Address: Toernooiveld 7b, 6525 ED Nijmegen, Netherlands
+Longitude: 5.87048720
+Latitude: 51.82284780
+
+Logistics Centre
+Address: Toernooiveld 8, 6525 ED Nijmegen, Netherlands
+Longitude: 5.86976160
+Latitude: 51.82318670
+
+Greenhouses and experimental garden
+Address: Toernooiveld 11, 6525 ED Nijmegen, Netherlands
+Longitude: 5.87012180
+Latitude: 51.82247450
+
+Daycare centre Kinderopvang Heyendael
+Address: Toernooiveld 15, 6525 ED Nijmegen, Netherlands
+Longitude: 5.87202300
+Latitude: 51.82264130
+
+University Business Centre (UBC)
+Address: Toernooiveld 100-154, 6525 EC Nijmegen, Netherlands
+Longitude: 5.87035520
+Latitude: 51.82395290
+
+Mercator I
+Address: Toernooiveld 200-208, 6525 EC Nijmegen, Netherlands
+Longitude: 5.87035520
+Latitude: 51.82395290
+
+Mercator II
+Address: Toernooiveld 300-318, 6525 EC Nijmegen, Netherlands
+Longitude: 5.87035520
+Latitude: 51.82395290
+
+Trigon (Donders Institute)
+Address: Kapittelweg 29, 6525 EN Nijmegen, Netherlands
+Longitude: 5.86327010
+Latitude: 51.82629080
+
+Villa Oud Heyendael
+Address: Rene Descartesdreef 21, 6525 GL Nijmegen, Netherlands
+Longitude: 5.86475550
+Latitude: 51.82145730

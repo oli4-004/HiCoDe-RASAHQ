@@ -8,14 +8,25 @@ intents:
   - ask_abbreviation
   - affirm
   - deny
+  - ask_route_description
+  - ask_travel_time
+
+entities:
+  - building
 
 slots:
+  # ---------------------------------------------------------------------------
+  # ABBREVIATIONS (abbreviation_flow)
+  # ---------------------------------------------------------------------------
   abbreviation_raw:
     type: text
     influence_conversation: false
     mappings:
       - type: from_llm
 
+  # ---------------------------------------------------------------------------
+  # FALLBACK / REPAIR LOGIC (fallback_flow, pattern_clarification, etc.)
+  # ---------------------------------------------------------------------------
   fallback_attempts:
     type: float
     initial_value: 0
@@ -35,6 +46,37 @@ slots:
     mappings:
       - type: from_llm
 
+  # ---------------------------------------------------------------------------
+  # ROUTE & TRAVEL (route_description_flow, ask_travel_time)
+  # ---------------------------------------------------------------------------
+  # Raw building mentions exactly as the user says them (e.g. "HG", "COM B").
+  source_building_raw:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  target_building_raw:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  prev_source_building_raw:
+    type: text
+    influence_conversation: false
+
+  prev_target_building_raw:
+    type: text
+    influence_conversation: false
+
+
+  travel_mode_hint:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
 responses:
   # ---------------------------------------------------------------------------
   # GREETING / GOODBYE / THANKS  (greet_flow, goodbye_flow, thanks_flow)
@@ -49,9 +91,8 @@ responses:
     - text: "You are welcome! Is there anything else I can help you with?"
 
   # ---------------------------------------------------------------------------
-  # Mental health issues (mental_health_flow)
+  # Mental health issues (mental_health_*_flow)
   # ---------------------------------------------------------------------------
-
   utter_severe_mental_health_support:
     - text: |
         I am really sorry that you are going through this. 💚
@@ -72,12 +113,27 @@ responses:
   utter_free_chitchat_response:
     - text: "Just so you know: I am mainly here to help with campus directions, building and room codes, or quick facts like opening hours. If you need anything else, please refer to the appropriate resources."
 
-
   # ---------------------------------------------------------------------------
   # ABBREVIATIONS (abbreviation_flow)
   # ---------------------------------------------------------------------------
   utter_ask_abbreviation_raw:
     - text: "Sure, tell me the abbreviation or room code you are confused about."
+
+  # ---------------------------------------------------------------------------
+  # ROUTE & TRAVEL (route_description_flow, ask_travel_time)
+  # ---------------------------------------------------------------------------
+  # These are used automatically when collecting source_building_raw / target_building_raw.
+  utter_ask_source_building_raw:
+    - text: "Where are you now? Please provide the building or building code, e.g. COM, CC, HG."
+
+  utter_ask_target_building_raw:
+    - text: "Where do you want to go? Please provide the building or building code, e.g. COM, CC, HG."
+
+  utter_route_api_error:
+    - text: "Currently I am unable to get you the correct route myself. I recommend using Google Maps."
+
+  utter_ask_travel_mode_hint:
+    - text: "Do you want to walk, cycle, or use public transport (bus/train)?"
 
   # ---------------------------------------------------------------------------
   # FALLBACK / OUT-OF-SCOPE (fallback_flow)
@@ -122,7 +178,7 @@ responses:
         rephrase: true
 
   utter_categorical_slot_rejection:
-    - text: "Sorry, your answer \"{value}\" is not one of the valid options. Please choose one of the available options."
+    - text: "Sorry, your answer \"{value}\", is not one of the valid options. Please choose one of the available options."
       metadata:
         rephrase: true
 
@@ -189,3 +245,5 @@ responses:
 
 actions:
   - action_smalltalk_llm
+  - action_get_route_description
+  - action_clear_route_context

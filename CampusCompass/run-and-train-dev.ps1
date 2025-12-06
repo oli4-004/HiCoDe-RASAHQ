@@ -115,10 +115,12 @@ Write-Host ""
 # 3) Start ACTION SERVER
 Write-Host "starting action server job on :5055 ..."
 $actionsJob = Start-Job -ScriptBlock {
-    param($PROJECT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH)
-    Set-Location $PROJECT_ROOT
+    param($PROJECT_ROOT, $BOT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH)
 
-    # make CampusCompass package importable
+    # Werkdirectory = CampusCompass, zodat Python 'logs/...' daar neerzet
+    Set-Location $BOT_ROOT
+
+    # CampusCompass package importable vanuit project root
     $env:PYTHONPATH = $PROJECT_ROOT
 
     & $VENV_RASA run actions `
@@ -126,7 +128,8 @@ $actionsJob = Start-Job -ScriptBlock {
         --port 5055 `
         --endpoints $ENDPOINTS_PATH `
         *> $actionsLog
-} -ArgumentList $PROJECT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH
+
+} -ArgumentList $PROJECT_ROOT, $BOT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH
 Write-Host ("actions job ID = {0}" -f $actionsJob.Id)
 
 Start-Sleep -Seconds 2
@@ -134,10 +137,12 @@ Start-Sleep -Seconds 2
 # 4) Start RASA SERVER
 Write-Host "starting rasa core job on :5005 ..."
 $coreJob = Start-Job -ScriptBlock {
-    param($PROJECT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH)
-    Set-Location $PROJECT_ROOT
+    param($PROJECT_ROOT, $BOT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH)
 
-    # IMPORTANT: same fix as actions job
+    # Zelfde: werkdirectory = CampusCompass
+    Set-Location $BOT_ROOT
+
+    # Maar imports blijven vanaf project root
     $env:PYTHONPATH = $PROJECT_ROOT
 
     & $VENV_RASA run `
@@ -148,7 +153,8 @@ $coreJob = Start-Job -ScriptBlock {
         --endpoints $ENDPOINTS_PATH `
         --model $MODELS_PATH `
         *> $coreLog
-} -ArgumentList $PROJECT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH
+
+} -ArgumentList $PROJECT_ROOT, $BOT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH
 Write-Host ("core job ID    = {0}" -f $coreJob.Id)
 
 # 5) Wacht tot Rasa draait

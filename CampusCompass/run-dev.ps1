@@ -113,9 +113,12 @@ Kill-Port 5500
 # 1) Start ACTION SERVER
 Write-Host "Starting action server on :5055 ..."
 $actionsJob = Start-Job -ScriptBlock {
-    param($PROJECT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH)
-    Set-Location $PROJECT_ROOT
+    param($PROJECT_ROOT, $BOT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH)
 
+    # Werkdirectory = CampusCompass, zodat Python 'logs/...' daar schrijft
+    Set-Location $BOT_ROOT
+
+    # CampusCompass package importable vanaf project root
     $env:PYTHONPATH = $PROJECT_ROOT
 
     & $VENV_RASA run actions `
@@ -124,7 +127,7 @@ $actionsJob = Start-Job -ScriptBlock {
         --endpoints $ENDPOINTS_PATH `
         *> $actionsLog
 
-} -ArgumentList $PROJECT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH
+} -ArgumentList $PROJECT_ROOT, $BOT_ROOT, $VENV_RASA, $actionsLog, $ENDPOINTS_PATH
 
 Write-Host ("Action server job ID = {0}" -f $actionsJob.Id)
 Start-Sleep -Seconds 2
@@ -132,9 +135,12 @@ Start-Sleep -Seconds 2
 # 2) Start RASA SERVER
 Write-Host "Starting Rasa server on :5005 ..."
 $coreJob = Start-Job -ScriptBlock {
-    param($PROJECT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH)
-    Set-Location $PROJECT_ROOT
+    param($PROJECT_ROOT, $BOT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH)
 
+    # Werkdirectory = CampusCompass
+    Set-Location $BOT_ROOT
+
+    # Imports vanaf project root
     $env:PYTHONPATH = $PROJECT_ROOT
 
     & $VENV_RASA run `
@@ -146,7 +152,7 @@ $coreJob = Start-Job -ScriptBlock {
         --model $MODELS_PATH `
         *> $coreLog
 
-} -ArgumentList $PROJECT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH
+} -ArgumentList $PROJECT_ROOT, $BOT_ROOT, $VENV_RASA, $coreLog, $CREDENTIALS_PATH, $ENDPOINTS_PATH, $MODELS_PATH
 
 Write-Host ("Rasa core job ID     = {0}" -f $coreJob.Id)
 
@@ -169,7 +175,7 @@ if (!(Test-Path $WEB_ROOT)) {
     Stop-Job $actionsJob.Id -ErrorAction SilentlyContinue
     Stop-Job $coreJob.Id    -ErrorAction SilentlyContinue
     Receive-Job $actionsJob.Id -ErrorAction SilentlyContinue | Out-Null
-    Receive-Job $coreJob.Id    -ErrorAction SilentlyContinue | Out-Null
+    Receive-Job $coreJob.Id    | Out-Null
     Remove-Job $actionsJob.Id,$coreJob.Id -ErrorAction SilentlyContinue
 
     Read-Host "Press Enter to exit"
