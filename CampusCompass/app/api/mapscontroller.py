@@ -4,11 +4,12 @@ import time
 import html
 import re
 import json
+import math
 from pathlib import Path
 
 import httpx
 
-from CampusCompass.app.config import GOOGLE_MAPS_API_KEY
+from CampusCompass.app.config import GOOGLE_MAPS_API_KEY, BUILDING_COORDS
 
 logger = logging.getLogger("campuscompass.maps")
 
@@ -45,7 +46,7 @@ class MapsController:
         def log_request(request: httpx.Request):
             request.extensions["start_time"] = time.time()
 
-            # ⚠️ Optioneel: API-key uit de URL strippen voordat je logt
+            # API-key uit de URL strippen voordat je logt
             url_str = str(request.url)
             url_str = re.sub(r"(key=)[^&]+", r"\1[REDACTED]", url_str)
 
@@ -84,11 +85,14 @@ class MapsController:
         {
           "origin": "Huygens building",
           "destination": "Comenius building B",
-          "origin_query": "Huygens building, Radboud University Nijmegen",
-          "destination_query": "Comenius building B, Radboud University Nijmegen",
+          "origin_query": "...",
+          "destination_query": "...",
           "duration_text": "9 mins",
           "distance_text": "700 m",
-          "steps": ["Head north on ...", "Turn left onto ...", ...]
+          "steps": ["Head north on ...", "Turn left onto ...", ...],
+          "segments": [ {start_lat, start_lng, end_lat, end_lng}, ... ],
+          "landmarks": [ {name, address, latitude, longitude, distance_m}, ... ],
+          "step_landmarks": [ { ... } or None, aligned with steps ]
         }
         """
         if not self.api_key or not self._client:
@@ -114,7 +118,6 @@ class MapsController:
 
         # -------- extra logging: raw JSON van Google (geknipt) --------
         try:
-            # alleen eerste route loggen en max ~4000 chars om het leesbaar te houden
             trimmed = {
                 "status": data.get("status"),
                 "geocoded_waypoints": data.get("geocoded_waypoints"),
@@ -138,22 +141,103 @@ class MapsController:
         steps = leg.get("steps", [])
 
         instruction_lines: List[str] = []
+        segments: List[Dict[str, float]] = []
+
         for s in steps:
             html_instr = s.get("html_instructions") or ""
             instruction_lines.append(self._clean_html(html_instr))
 
+            start = s.get("start_location") or {}
+            end = s.get("end_location") or {}
+
+            try:
+                seg = {
+                    "start_lat": float(start.get("lat")),
+                    "start_lng": float(start.get("lng")),
+                    "end_lat": float(end.get("lat")),
+                    "end_lng": float(end.get("lng")),
+                }
+                segments.append(seg)
+            except (TypeError, ValueError):
+                # als er iets geks in de JSON zit, slaan we dit segment over
+                continue
+
         # Limit steps so the prompt stays reasonable
         instruction_lines = [s for s in instruction_lines if s][:12]
 
-        # -------- extra logging: wat we naar de LLM sturen als 'steps' --------
+        # Bepaal welke gebouwen echt vlak langs de volledige route liggen
+        landmarks = self._find_buildings_along_route(
+            segments=segments,
+            buildings=BUILDING_COORDS or [],
+            max_distance_m=40.0,
+        )
+
+        # Ruwe per-stap kandidaten (alle gebouwen onder de drempel per segment)
+        raw_step_buildings: List[List[Dict[str, Any]]] = []
+        for seg in segments:
+            per_step = self._find_buildings_for_segment(
+                segment=seg,
+                buildings=BUILDING_COORDS or [],
+                max_distance_m=40.0,
+            )
+            raw_step_buildings.append(per_step)
+
+        # Normaliseer origin/destination naar "basisnaam" (stuk vóór eerste komma)
+        origin_base = (origin_name.split(",")[0] or "").strip()
+        dest_base = (destination_name.split(",")[0] or "").strip()
+
+        # Selectieregels:
+        # - origin/destination nooit als landmark
+        # - elk gebouw max 1x over de hele route
+        # - per stap max 2 landmarks (eerste 2 na filtering)
+        already_mentioned: set[str] = {origin_base, dest_base}
+        step_landmarks: List[List[str]] = []
+
+        for per_step in raw_step_buildings:
+            names_in_step: List[str] = []
+
+            for b in per_step:
+                name = (b.get("name") or "").strip()
+                if not name:
+                    continue
+                base = name.split(",")[0].strip()
+
+                # skip origin/destination én dingen die al genoemd zijn
+                if base in already_mentioned:
+                    continue
+                if base in names_in_step:
+                    continue
+
+                names_in_step.append(base)
+
+            if not names_in_step:
+                step_landmarks.append([])
+                continue
+
+            chosen = names_in_step[:2]  # max 2 per stap
+            step_landmarks.append(chosen)
+            already_mentioned.update(chosen)
+
+        # -------- extra logging --------
         try:
             self._maps_logger.info(
-                "DIRECTIONS_PARSED origin=%r destination=%r duration=%r distance=%r steps=%s",
+                "DIRECTIONS_PARSED origin=%r destination=%r duration=%r distance=%r steps=%s landmarks=%s step_landmarks=%s",
                 origin_query,
                 destination_query,
                 duration_text,
                 distance_text,
                 instruction_lines,
+                [
+                    {
+                        "name": lm.get("name"),
+                        "distance_m": round(lm.get("distance_m", 0.0), 1),
+                    }
+                    for lm in landmarks
+                ],
+                [
+                    per_step
+                    for per_step in step_landmarks
+                ],
             )
         except Exception as e:
             self._maps_logger.warning("Failed to log parsed directions: %s", e)
@@ -166,6 +250,9 @@ class MapsController:
             "duration_text": duration_text,
             "distance_text": distance_text,
             "steps": instruction_lines,
+            "segments": segments,
+            "landmarks": landmarks,
+            "step_landmarks": step_landmarks,
         }
 
     # ------------------------------------------------------------------
@@ -199,3 +286,131 @@ class MapsController:
         """
         text = html.unescape(text or "")
         return re.sub("<.*?>", "", text).strip()
+
+    # ---------- geometrie helpers voor route-landmarks ----------
+
+    def _point_to_segment_distance_m(
+        self,
+        lat: float,
+        lng: float,
+        s_lat: float,
+        s_lng: float,
+        e_lat: float,
+        e_lng: float,
+    ) -> float:
+        """
+        Benaderde kortste afstand tussen een punt (lat/lng) en een lijnsegment in meters.
+        Voor campus-schaal is dit vlakke model prima.
+        """
+        # eenvoudige projectie naar meters
+        lat0 = math.radians((s_lat + e_lat) / 2.0)
+        kx = 111320 * math.cos(lat0)   # meter per graad longitude
+        ky = 111132                    # meter per graad latitude
+
+        px, py = ((lng - s_lng) * kx, (lat - s_lat) * ky)
+        sx, sy = (0.0, 0.0)
+        ex, ey = ((e_lng - s_lng) * kx, (e_lat - s_lat) * ky)
+
+        vx, vy = (ex - sx, ey - sy)
+        seg_len2 = vx * vx + vy * vy
+        if seg_len2 == 0.0:
+            # start == end
+            return math.hypot(px - sx, py - sy)
+
+        t = ((px - sx) * vx + (py - sy) * vy) / seg_len2
+        t = max(0.0, min(1.0, t))  # clamp binnen segment
+        projx, projy = (sx + t * vx, sy + t * vy)
+        return math.hypot(px - projx, py - projy)
+
+    def _find_buildings_along_route(
+            self,
+            segments: List[Dict[str, float]],
+            buildings: List[Dict[str, Any]],
+            max_distance_m: float,
+    ) -> List[Dict[str, Any]]:
+        """
+        Kies gebouwen die echt in de buurt van de totale route liggen.
+        Retourneert een kleine lijst, gesorteerd op minimale afstand tot een van de segmenten.
+        """
+        if not segments or not buildings:
+            return []
+
+        candidates: List[Dict[str, Any]] = []
+
+        for b in buildings:
+            blat = b.get("latitude")
+            blng = b.get("longitude")
+            if blat is None or blng is None:
+                continue
+
+            try:
+                blat_f = float(blat)
+                blng_f = float(blng)
+            except (TypeError, ValueError):
+                continue
+
+            min_d: Optional[float] = None
+            for seg in segments:
+                d = self._point_to_segment_distance_m(
+                    blat_f,
+                    blng_f,
+                    seg["start_lat"],
+                    seg["start_lng"],
+                    seg["end_lat"],
+                    seg["end_lng"],
+                )
+                if min_d is None or d < min_d:
+                    min_d = d
+
+            if min_d is not None and min_d <= max_distance_m:
+                c = dict(b)
+                c["distance_m"] = float(min_d)
+                candidates.append(c)
+
+        candidates.sort(key=lambda x: x.get("distance_m", 1e9))
+        # max 6 landmarks zodat de prompt niet explodeert
+        return candidates[:6]
+
+    def _find_buildings_for_segment(
+            self,
+            segment: Dict[str, float],
+            buildings: List[Dict[str, Any]],
+            max_distance_m: float,
+    ) -> List[Dict[str, Any]]:
+        """
+        Kies ALLE gebouwen die in de buurt liggen van één segment.
+        Retourneert een lijst gesorteerd op afstand tot dit segment.
+        """
+        if not segment or not buildings:
+            return []
+
+        candidates: List[Dict[str, Any]] = []
+
+        for b in buildings:
+            blat = b.get("latitude")
+            blng = b.get("longitude")
+            if blat is None or blng is None:
+                continue
+
+            try:
+                blat_f = float(blat)
+                blng_f = float(blng)
+            except (TypeError, ValueError):
+                continue
+
+            d = self._point_to_segment_distance_m(
+                blat_f,
+                blng_f,
+                segment["start_lat"],
+                segment["start_lng"],
+                segment["end_lat"],
+                segment["end_lng"],
+            )
+            if d <= max_distance_m:
+                c = dict(b)
+                c["distance_m"] = float(d)
+                candidates.append(c)
+
+        candidates.sort(key=lambda x: x.get("distance_m", 1e9))
+        return candidates
+

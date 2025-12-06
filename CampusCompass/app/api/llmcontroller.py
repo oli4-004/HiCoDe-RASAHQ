@@ -297,6 +297,21 @@ class LLMController:
             return raw
 
         normalized = text.strip().splitlines()[0].strip()
+
+        # Fallback: als het model meldt dat het gebouw niet in CAMPUS_DOCS staat,
+        # kies een zinnige default voor veelvoorkomende namen.
+        lower_norm = normalized.lower()
+        lower_raw = raw.lower()
+
+        if "not listed in campus_docs" in lower_norm:
+            if lower_raw.startswith("comenius"):
+                # gebruik één concrete Comenius-variant i.p.v. de foutmelding
+                return "Comenius building B"
+            if lower_raw.startswith("mercator"):
+                return "Mercator I"
+            # anders: val gewoon terug op de ruwe input
+            return raw
+
         return normalized or raw
 
     # ---------------------------------------------------------------------
@@ -311,12 +326,13 @@ class LLMController:
 
         The LLM may ONLY:
         - summarise the existing steps, in the same order,
-        - add landmarks that are consistent with CAMPUS_DOCS.
+        - use buildings that the backend has already marked as step_landmarks.
         """
 
         route = route or {}
         duration = route.get("duration_text") or ""
         steps = route.get("steps") or []
+        step_landmarks = route.get("step_landmarks") or []
 
         # -------- Fallback if OpenAI is not available --------
         fallback_lines: List[str] = []
@@ -340,24 +356,25 @@ class LLMController:
         if not self.client:
             return fallback
 
-        # Load building + street docs (kb_streets, kb_abbreviations, etc.)
-        docs_text = self._load_building_docs()
-
         system_msg = (
             "You are CampusCompass, a campus navigation assistant at Radboud University Nijmegen.\n"
-            "You receive:\n"
-            "  • ROUTE_DATA: walking directions from Google Maps (duration + ordered list of steps).\n"
-            "  • CAMPUS_DOCS: descriptions of campus streets, squares and buildings (with addresses).\n"
+            "You receive ROUTE_DATA with:\n"
+            "  • origin: ORIGIN building name,\n"
+            "  • destination: DESTINATION building name,\n"
+            "  • duration_text: total walking time,\n"
+            "  • steps: an ordered list of text instructions from Google Maps,\n"
+            "  • step_landmarks: a list aligned with steps; step_landmarks[i] is a LIST of\n"
+            "    0–2 building names that SHOULD be mentioned for step i.\n"
             "\n"
             "YOUR TASK\n"
             "Turn ROUTE_DATA into ONE clear answer for a student on campus.\n"
-            "You MUST stay faithful to ROUTE_DATA and to CAMPUS_DOCS.\n"
+            "You MUST stay faithful to ROUTE_DATA.\n"
             "\n"
             "OUTPUT FORMAT\n"
             "  1. First sentence: \"It is about X minutes on foot from ORIGIN to DESTINATION.\" "
             "(use ROUTE_DATA.duration_text; if missing, say \"a few minutes\").\n"
             "  2. Then 1–3 short sentences that describe the route.\n"
-            "  3. No bullet points or numbering. Maximum ~70 words in total.\n"
+            "  3. No bullet points or numbering. Maximum ~80 words in total.\n"
             "\n"
             "ROUTE FIDELITY (VERY IMPORTANT)\n"
             "  - Treat ROUTE_DATA.steps as ground truth for the path.\n"
@@ -366,33 +383,30 @@ class LLMController:
             "  - Only use street names that actually appear in ROUTE_DATA.steps.\n"
             "  - Do NOT invent extra streets or squares.\n"
             "\n"
-            "USING LANDMARKS (BUILDINGS / SQUARES)\n"
-            "  - CAMPUS_DOCS tells you which buildings are on which streets.\n"
-            "  - You may mention:\n"
-            "      • the origin building,\n"
-            "      • the destination building,\n"
-            "      • at most 1–2 intermediate buildings that lie on one of the streets "
-            "        from ROUTE_DATA.steps (according to CAMPUS_DOCS).\n"
-            "  - If a building is NOT on those streets in CAMPUS_DOCS, you MUST NOT say that the route "
-            "    passes it or that it is 'near' the path.\n"
-            "  - Never claim two buildings are near each other unless CAMPUS_DOCS explicitly suggests this "
-            "    (for example by sharing the same street or being grouped together in the same description).\n"
-            "\n"
-            "EXAMPLE OF CORRECT LANDMARK USE\n"
-            "  - If the steps mention only Heyendaalseweg and Willem Nuyenslaan, and CAMPUS_DOCS shows that "
-            "    the Elinor Ostrom building and Gymnasion are on Heyendaalseweg, you may say something like "
-            "    \"walk along Heyendaalseweg past the Elinor Ostrom building and Gymnasion\".\n"
-            "  - If the steps mention only Thomas van Aquinostraat and Montessorilaan, and CAMPUS_DOCS shows "
-            "    that the Maria Montessori building and the Grotiusgebouw and Spinozagebouw are on those "
-            "    streets, you may mention those buildings.\n"
-            "  - In that situation you MUST NOT suddenly mention buildings on Heyendaalseweg such as "
-            "    the Elinor Ostrom building or Gymnasion, because the route does not use that street.\n"
+            "LANDMARK RULES (PER STEP)\n"
+            "  - For each index i, step_landmarks[i] is ALREADY a final list of building names to mention\n"
+            "    for that step (0, 1 or 2 names, already filtered).\n"
+            "  - If step_landmarks[i] is empty, you MUST NOT mention any building for that step.\n"
+            "  - If step_landmarks[i] contains one name, mention that building naturally in the same sentence\n"
+            "    as step i.\n"
+            "  - If step_landmarks[i] contains two names, mention both buildings naturally for that step.\n"
+            "  - Do NOT add, remove or swap landmarks: you may only use building names that appear inside\n"
+            "    step_landmarks, plus ORIGIN and DESTINATION.\n"
+            "  - Use landmarks as something the user walks past or along, for example:\n"
+            "      • \"Head west on Thomas van Aquinostraat, passing [LANDMARK], then ...\"\n"
+            "      • \"Turn left onto Willem Nuyenslaan, with [LANDMARK 1] and [LANDMARK 2] along the way, then ...\"\n"
+            "  - Mention ORIGIN only in the first sentence (\"from ORIGIN to DESTINATION\").\n"
+            "  - Mention DESTINATION only in the first or final sentence as the endpoint; do NOT claim that\n"
+            "    the user \"passes\" ORIGIN or DESTINATION mid-route unless the step text itself says so.\n"
+            "  - You MUST NOT introduce any other buildings than ORIGIN, DESTINATION, or those listed\n"
+            "    in step_landmarks.\n"
+            "  - You may shorten a landmark to its building name (e.g. \"Grotius building\"), but do not invent new names.\n"
+            "  - Do NOT guess whether a building is on the left or right unless the step text itself contains that side.\n"
             "\n"
             "STYLE RESTRICTIONS\n"
             "  - Answer in English.\n"
             "  - Be purely practical: describe what the user should do and which streets/buildings they pass.\n"
-            "  - Do NOT add emotional or touristic commentary (no \"enjoy the greenery\", no descriptions of "
-            "    architecture beyond a simple label like \"sports building\" or \"library\").\n"
+            "  - Do NOT add emotional or touristic commentary.\n"
             "  - Do NOT mention JSON, APIs or internal tools.\n"
         )
 
@@ -402,14 +416,13 @@ class LLMController:
             "duration_text": duration,
             "distance_text": route.get("distance_text"),
             "steps": steps,
+            "step_landmarks": step_landmarks,
         }
 
         user_msg = (
-            "Here is the route data and the campus documentation.\n\n"
+            "Here is the route data.\n\n"
             "ROUTE_DATA:\n"
-            f"{json.dumps(payload, ensure_ascii=False)}\n\n"
-            "CAMPUS_DOCS (buildings and streets):\n"
-            f"{docs_text}"
+            f"{json.dumps(payload, ensure_ascii=False)}"
         )
 
         text = self._chat_completion(
@@ -425,6 +438,8 @@ class LLMController:
         if not text:
             return fallback
         return text.strip()
+
+
 
 
 
