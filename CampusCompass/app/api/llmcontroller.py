@@ -209,17 +209,86 @@ class LLMController:
         return self._building_docs_text
 
     # ---------------------------------------------------------------------
-    # ROUTE: NORMALIZE BUILDING NAME  (STRICT: NAME + ADDRESS FROM DOCS ONLY)
+    # ROUTE: NORMALIZE TRAVEL MODE HINT → GOOGLE MAPS MODE
     # ---------------------------------------------------------------------
+    def normalize_travel_mode(self, raw: str) -> str:
+        """
+        Map a free-form user phrase about how they want to travel
+        to exactly one of the Google Maps modes:
+
+            - 'walking'
+            - 'bicycling'
+            - 'driving'
+
+        If the hint is empty or ambiguous, default to 'walking'.
+        """
+
+        raw_clean = _clean(raw)
+
+        # If there is no LLM client, always fall back to walking.
+        if not self.client:
+            return "walking"
+
+        # Empty or whitespace-only → walking
+        if not raw_clean:
+            return "walking"
+
+        system_msg = (
+            "You are CampusCompass, a campus assistant at Radboud University Nijmegen.\n"
+            "Your task is to map a free-form user phrase about how they want to travel\n"
+            "to exactly ONE of these three strings:\n"
+            "  - walking\n"
+            "  - bicycling\n"
+            "  - driving\n"
+            "\n"
+            "Rules:\n"
+            "- If the user clearly wants to go on foot, answer 'walking'.\n"
+            "- If the user clearly wants to go by bike, answer 'bicycling'.\n"
+            "- If the user clearly wants to go by car, answer 'driving'.\n"
+            "- If the user mentions bus, train, tram, metro or public transport in general,\n"
+            "  or if their preference is unclear or mixed, default to 'walking'.\n"
+            "- Answer with exactly one word: 'walking', 'bicycling', or 'driving'.\n"
+            "- Do NOT add any explanations, punctuation, or extra words."
+        )
+
+        user_msg = f"User travel mode phrase: '{raw_clean}'"
+
+        text = self._chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            model="gpt-4o-mini",
+            temperature=0.0,
+            max_completion_tokens=4,
+        )
+
+        if not text:
+            return "walking"
+
+        mode = text.strip().split()[0].lower()
+
+        if mode in {"walking", "bicycling", "driving"}:
+            return mode
+
+        # Safety fallback
+        return "walking"
+
+
+    # ---------------------------------------------------------------------
+    # ROUTE: NORMALIZE BUILDING / VENUE NAME (BUILDINGS + VENUES FROM DOCS)
+    # ---------------------------------------------------------------------
+
     def normalize_building_name(self, raw: str) -> str:
         """
-        Use the LLM + campus docs to normalize a raw building reference
-        (e.g. 'HG', 'MM', 'EOS', 'CC') into a canonical building name + postal
-        address that Google Maps can geocode.
+        Use the LLM + CAMPUS_DOCS to normalize a raw reference
+        (e.g. 'HG', 'MM', 'EOS', 'bar van tandheelkunde', 'Aesculaaf')
+        into a single line that Google Maps can geocode:
 
-        IMPORTANT:
-        - The ONLY allowed source is CAMPUS_DOCS (buildings, streets, abbreviations).
-        - If nothing in CAMPUS_DOCS matches, return the raw input unchanged.
+            <Name>, <street> <house number>, <postcode> Nijmegen
+
+        The LLM must ONLY use addresses that actually appear in CAMPUS_DOCS.
+        If nothing matches, return the raw input unchanged.
         """
         raw = _clean(raw)
         if not raw:
@@ -228,58 +297,70 @@ class LLMController:
         if not self.client:
             return raw
 
+        # Volledige campusdocs (gebouwen, venues, abbreviaties, etc.)
         docs_text = self._load_building_docs()
 
         system_msg = (
             "You are CampusCompass, a campus assistant for Radboud University Nijmegen.\n"
-            "You receive a raw building reference (often an abbreviation) and CAMPUS_DOCS.\n"
-            "CAMPUS_DOCS contains:\n"
+            "You receive a raw location reference (often an abbreviation or nickname)\n"
+            "and CAMPUS_DOCS containing building and venue information.\n"
+            "\n"
+            "CAMPUS_DOCS includes:\n"
             "- Building names with their exact postal addresses.\n"
-            "- Street descriptions with building lists.\n"
-            "- Abbreviations like MM, EOS, HG, CC, UB, BM that refer to buildings.\n"
+            "- Venues inside buildings (bars, cafés, canteens, study spaces, prayer rooms, etc.).\n"
+            "- Abbreviations such as MM, EOS, HG, CC, UB, BM that refer to buildings.\n"
+            "- Descriptions that link venues to buildings (e.g. a bar inside Dentistry).\n"
             "\n"
-            "YOUR JOB\n"
-            "- Find the single best matching *building* for the raw reference using ONLY CAMPUS_DOCS.\n"
-            "- Then output its canonical building name plus the exact address as written in CAMPUS_DOCS.\n"
+            "YOUR TASK\n"
+            "- Interpret the raw reference as EITHER:\n"
+            "  (a) a building, OR\n"
+            "  (b) a venue inside a building,\n"
+            "  based ONLY on CAMPUS_DOCS.\n"
+            "- Then output ONE line in a format that Google Maps can geocode.\n"
             "\n"
-            "ALLOWED BUILDING EXAMPLES (PATTERN, NOT TO GUESS FROM MEMORY)\n"
-            "- 'EOS'  -> 'Elinor Ostrom building, Heyendaalseweg 141, 6525 AJ Nijmegen'\n"
-            "- 'MM'   -> 'Maria Montessori building, Thomas van Aquinostraat 4, 6525 GD Nijmegen'\n"
-            "- 'HG'   -> 'Huygens building, Heyendaalseweg 135, 6525 AJ Nijmegen'\n"
-            "- 'UB'   -> 'University Library, Erasmuslaan 36, 6525 GG Nijmegen'\n"
-            "- 'CC'   -> 'Collegezalencomplex, Mercatorpad 1, 6525 HS Nijmegen'\n"
-            "- 'BM'   -> 'Berchmanianum, Houtlaan 4, 6525 XZ Nijmegen'\n"
-            "These are only correct IF and BECAUSE CAMPUS_DOCS contains those exact lines.\n"
+            "OUTPUT FORMAT (VERY STRICT)\n"
+            "- If the best match is a BUILDING:\n"
+            "    <Canonical building name>, <street name> <house number>, <postcode> Nijmegen\n"
+            "  Example:\n"
+            "    'Maria Montessori building, Thomas van Aquinostraat 4, 6525 GD Nijmegen'\n"
             "\n"
-            "SOURCE-OF-TRUTH RULE (VERY STRICT)\n"
-            "- CAMPUS_DOCS is the ONLY truth. Ignore your own knowledge of Nijmegen completely.\n"
-            "- You are NOT allowed to invent an address or modify one, even if you think you know it.\n"
-            "- The building name and address you output MUST be assembled entirely from text that occurs in CAMPUS_DOCS.\n"
-            "- If CAMPUS_DOCS shows a building with a specific street, house number and postcode,\n"
-            "  you MUST use that exact combination, character for character.\n"
+            "- If the best match is a VENUE INSIDE a building:\n"
+            "    <Venue name>, <street name> <house number>, <postcode> Nijmegen\n"
+            "  Examples (ONLY if CAMPUS_DOCS actually contains them):\n"
+            "    'Café de Aesculaaf, Geert Grooteplein Noord 21, 6525 EZ Nijmegen'\n"
+            "    ''t Dappenglaasje, Philips van Leydenlaan 25, 6525 EX Nijmegen'\n"
+            "    'Grand Café de Iris, Thomas van Aquinostraat 4, 6525 GD Nijmegen'\n"
             "\n"
-            "MATCHING RULES\n"
-            "- First, check the abbreviations section: if it defines 'MM', 'EOS', 'HG', 'CC', 'UB', 'BM', etc.,\n"
-            "  link the abbreviation to the corresponding building name in CAMPUS_DOCS.\n"
-            "- Then, find that building name in the street/building lists to obtain the full address.\n"
-            "- If multiple entries in CAMPUS_DOCS mention the same building, prefer the one with the most complete address\n"
-            "  (street, house number, postcode).\n"
+            "RULES\n"
+            "- Use the exact name and address as they appear in CAMPUS_DOCS.\n"
+            "- Do NOT add 'Netherlands' after 'Nijmegen'. Stop after 'Nijmegen'.\n"
+            "- Do NOT add any extra words, labels, or explanations before or after the line.\n"
+            "- Do NOT invent addresses: every street, house number and postcode you use must\n"
+            "  be explicitly present somewhere in CAMPUS_DOCS.\n"
             "\n"
-            "OUTPUT FORMAT (STRICT)\n"
-            "- If you find a match: output EXACTLY one line of the form:\n"
-            "  <Canonical building name>, <street name> <house number>, <postcode> Nijmegen\n"
-            "  Example: 'Elinor Ostrom building, Heyendaalseweg 141, 6525 AJ Nijmegen'.\n"
-            "- Do NOT add 'Netherlands' or anything after 'Nijmegen'.\n"
-            "- Do NOT add explanations, labels, or extra text.\n"
+            "MATCHING HINTS (ONLY if consistent with CAMPUS_DOCS)\n"
+            "- 'MM' usually refers to the Maria Montessori building.\n"
+            "- 'HG' usually refers to the Huygens building.\n"
+            "- 'EOS' usually refers to the Elinor Ostrom building.\n"
+            "- 'CC' usually refers to the Collegezalencomplex.\n"
+            "- 'UB' usually refers to the University Library.\n"
+            "- 'Aesculaaf' usually refers to the café/venue 'Café de Aesculaaf'.\n"
+            "- Phrases like 'bar van tandheelkunde' usually refer to the bar inside Dentistry,\n"
+            "  e.g. ''t Dappenglaasje' if CAMPUS_DOCS describes it.\n"
+            "\n"
+            "SOURCE-OF-TRUTH RULE\n"
+            "- CAMPUS_DOCS is the ONLY source of truth.\n"
+            "- Ignore any external knowledge about Nijmegen or Radboud University.\n"
+            "- If you cannot find a reliable match in CAMPUS_DOCS, do NOT guess.\n"
             "\n"
             "FALLBACK\n"
-            "- ONLY if you truly cannot find any matching building in CAMPUS_DOCS,\n"
-            "  output the raw input unchanged, as a single line.\n"
+            "- If you truly cannot find ANY matching building or venue in CAMPUS_DOCS,\n"
+            "  respond with EXACTLY the original raw input, unchanged, with no extra words.\n"
         )
 
         user_msg = (
-            f"Raw building reference: '{raw}'.\n\n"
-            "CAMPUS_DOCS (buildings + streets + addresses + abbreviations):\n"
+            f"Raw location reference: '{raw}'.\n\n"
+            "CAMPUS_DOCS (buildings + streets + abbreviations + venues/spaces):\n"
             f"{docs_text}"
         )
 
@@ -290,35 +371,32 @@ class LLMController:
             ],
             model="gpt-4o-mini",
             temperature=0.0,
-            max_completion_tokens=60,
+            max_completion_tokens=80,
         )
 
         if not text:
             return raw
 
-        normalized = text.strip().splitlines()[0].strip()
-
-        # Fallback: als het model meldt dat het gebouw niet in CAMPUS_DOCS staat,
-        # kies een zinnige default voor veelvoorkomende namen.
+        # Neem alleen de eerste regel van de LLM-output
+        normalized = (text or "").strip().splitlines()[0].strip()
         lower_norm = normalized.lower()
-        lower_raw = raw.lower()
 
-        if "not listed in campus_docs" in lower_norm:
-            if lower_raw.startswith("comenius"):
-                # gebruik één concrete Comenius-variant i.p.v. de foutmelding
-                return "Comenius building B"
-            if lower_raw.startswith("mercator"):
-                return "Mercator I"
-            # anders: val gewoon terug op de ruwe input
+        # Sanity-checks: meta / lege antwoorden → fallback
+        if (
+            not normalized
+            or "campus_docs" in lower_norm
+            or "raw input unchanged" in lower_norm
+            or "not listed" in lower_norm
+        ):
             return raw
 
-        return normalized or raw
+        return normalized
 
     # ---------------------------------------------------------------------
     # ROUTE: TURN STRUCTURED DATA INTO A NICE MESSAGE
     # ---------------------------------------------------------------------
     def format_route_description(
-            self, origin_name: str, destination_name: str, route: Dict[str, Any]
+            self, origin_name: str, destination_name: str, route: Dict[str, Any], mode: str = "walking"
     ) -> str:
         """
         Take structured route data from MapsController and turn it into
@@ -338,15 +416,15 @@ class LLMController:
         fallback_lines: List[str] = []
         if duration:
             fallback_lines.append(
-                f"On foot, the route from {origin_name} to {destination_name} takes about {duration}."
+                f"The route from {origin_name} to {destination_name} takes about {duration}."
             )
         else:
             fallback_lines.append(
-                f"Here is a walking route from {origin_name} to {destination_name}."
+                f"Here is a route from {origin_name} to {destination_name}."
             )
 
         if steps:
-            fallback_lines.append("Rough walking directions:")
+            fallback_lines.append("Rough directions:")
             for i, step in enumerate(steps[:8], start=1):
                 fallback_lines.append(f"{i}. {step}")
 
@@ -361,51 +439,73 @@ class LLMController:
             "You receive ROUTE_DATA with:\n"
             "  • origin: ORIGIN building name,\n"
             "  • destination: DESTINATION building name,\n"
-            "  • duration_text: total walking time,\n"
-            "  • steps: an ordered list of text instructions from Google Maps,\n"
+            "  • duration_text: total travel time,\n"
+            "  • steps: an ordered list of text instructions from Google Maps. Each step string may end\n"
+            "    with a distance in parentheses such as \"(70 m)\" or \"(0.3 km)\".\n"
             "  • step_landmarks: a list aligned with steps; step_landmarks[i] is a LIST of\n"
             "    0–2 building names that SHOULD be mentioned for step i.\n"
+            "  • travel_mode: either walking, bicycling or driving. The mode of transport. Use this when talking about duration (on foot, by bike, by car)"
             "\n"
             "YOUR TASK\n"
-            "Turn ROUTE_DATA into ONE clear answer for a student on campus.\n"
+            "Turn ROUTE_DATA into a clear, easy-to-follow explanation for a student on campus.\n"
             "You MUST stay faithful to ROUTE_DATA.\n"
             "\n"
             "OUTPUT FORMAT\n"
-            "  1. First sentence: \"It is about X minutes on foot from ORIGIN to DESTINATION.\" "
+            "  1. First line: \"It is about X minutes from ORIGIN to DESTINATION.\" "
             "(use ROUTE_DATA.duration_text; if missing, say \"a few minutes\").\n"
-            "  2. Then 1–3 short sentences that describe the route.\n"
-            "  3. No bullet points or numbering. Maximum ~80 words in total.\n"
+            "  2. Then write the walking instructions as numbered lines:\n"
+            "       1. ...\n"
+            "       2. ...\n"
+            "       3. ...\n"
+            "     Rules for these lines:\n"
+            "       - Each numbered step MUST be on its own line.\n"
+            "       - You MUST NOT put more than one numbered step on the same line.\n"
+            "       - Keep each line short and readable.\n"
+            "  3. Keep the whole answer concise (roughly up to 100 words total).\n"
             "\n"
             "ROUTE FIDELITY (VERY IMPORTANT)\n"
             "  - Treat ROUTE_DATA.steps as ground truth for the path.\n"
-            "  - Preserve ALL steps in the same order. You may combine two small consecutive turns "
-            "    into one sentence, but you MUST NOT skip, reorder or invent steps.\n"
+            "  - Preserve ALL steps in the same order. You may combine two small consecutive turns\n"
+            "    into one line, but you MUST NOT skip, reorder or invent steps.\n"
             "  - Only use street names that actually appear in ROUTE_DATA.steps.\n"
             "  - Do NOT invent extra streets or squares.\n"
+            "\n"
+            "DISTANCE RULES (PER STEP)\n"
+            "  - Many step strings end with a distance in parentheses, such as \"(70 m)\" or \"(0.3 km)\".\n"
+            "  - Whenever a step contains such a distance, you MUST express it explicitly in your text, e.g.:\n"
+            "      • \"Walk about 70 m along Heyendaalseweg …\"\n"
+            "      • \"Follow Willem Nuyenslaan for about 0.3 km, then …\"\n"
+            "  - Do NOT drop these distances; they are important for orientation.\n"
             "\n"
             "LANDMARK RULES (PER STEP)\n"
             "  - For each index i, step_landmarks[i] is ALREADY a final list of building names to mention\n"
             "    for that step (0, 1 or 2 names, already filtered).\n"
             "  - If step_landmarks[i] is empty, you MUST NOT mention any building for that step.\n"
-            "  - If step_landmarks[i] contains one name, mention that building naturally in the same sentence\n"
+            "  - If step_landmarks[i] contains one name, mention that building naturally in the same line\n"
             "    as step i.\n"
             "  - If step_landmarks[i] contains two names, mention both buildings naturally for that step.\n"
             "  - Do NOT add, remove or swap landmarks: you may only use building names that appear inside\n"
             "    step_landmarks, plus ORIGIN and DESTINATION.\n"
             "  - Use landmarks as something the user walks past or along, for example:\n"
-            "      • \"Head west on Thomas van Aquinostraat, passing [LANDMARK], then ...\"\n"
-            "      • \"Turn left onto Willem Nuyenslaan, with [LANDMARK 1] and [LANDMARK 2] along the way, then ...\"\n"
-            "  - Mention ORIGIN only in the first sentence (\"from ORIGIN to DESTINATION\").\n"
-            "  - Mention DESTINATION only in the first or final sentence as the endpoint; do NOT claim that\n"
+            "      • \"Walk about 70 m on Thomas van Aquinostraat, passing [LANDMARK], then …\"\n"
+            "      • \"Turn left onto Willem Nuyenslaan and follow it for 0.3 km, with [LANDMARK 1]\n"
+            "         and [LANDMARK 2] along the way.\"\n"
+            "  - Mention ORIGIN only in the first line (\"from ORIGIN to DESTINATION\").\n"
+            "  - Mention DESTINATION only in the first or final line as the endpoint; do NOT claim that\n"
             "    the user \"passes\" ORIGIN or DESTINATION mid-route unless the step text itself says so.\n"
             "  - You MUST NOT introduce any other buildings than ORIGIN, DESTINATION, or those listed\n"
             "    in step_landmarks.\n"
-            "  - You may shorten a landmark to its building name (e.g. \"Grotius building\"), but do not invent new names.\n"
-            "  - Do NOT guess whether a building is on the left or right unless the step text itself contains that side.\n"
+            "  - You may shorten a landmark to its building name (e.g. \"Grotius building\"), but do not\n"
+            "    invent new names.\n"
+            "  - You MUST NOT say that a building is \"on your left\" or \"on your right\" unless the\n"
+            "    corresponding step text explicitly mentions that same building and its side.\n"
+            "  - You MUST NOT mention \"crossing the road\", bridges, tunnels or any other actions that are\n"
+            "    not explicitly present in ROUTE_DATA.steps.\n"
             "\n"
             "STYLE RESTRICTIONS\n"
             "  - Answer in English.\n"
-            "  - Be purely practical: describe what the user should do and which streets/buildings they pass.\n"
+            "  - Be purely practical: describe what the user should do, how far they walk for each step,\n"
+            "    and which streets/buildings they pass.\n"
             "  - Do NOT add emotional or touristic commentary.\n"
             "  - Do NOT mention JSON, APIs or internal tools.\n"
         )
@@ -417,6 +517,7 @@ class LLMController:
             "distance_text": route.get("distance_text"),
             "steps": steps,
             "step_landmarks": step_landmarks,
+            "travel_mode": mode
         }
 
         user_msg = (
@@ -431,17 +532,10 @@ class LLMController:
                 {"role": "user", "content": user_msg},
             ],
             model="gpt-4o-mini",
-            temperature=0.0,  # zo min mogelijk creatief / random
-            max_completion_tokens=180,
+            temperature=0.0,
+            max_completion_tokens=360,
         )
 
         if not text:
             return fallback
         return text.strip()
-
-
-
-
-
-
-

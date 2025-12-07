@@ -226,5 +226,138 @@
     "address": "Rene Descartesdreef 21, 6525 GL Nijmegen, Netherlands",
     "longitude": 5.86475550,
     "latitude": 51.82145730
+  },
+  {
+    "name": "CultuurCafé",
+    "address": "Mercatorpad 1, 6525 HS Nijmegen, Netherlands",
+    "longitude": 5.86439590,
+    "latitude": 51.81920960
+  },
+  {
+    "name": "The Yard",
+    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
+    "longitude": 5.86790860,
+    "latitude": 51.81865500
+  },
+  {
+    "name": "Blommers Coffee Corner Elinor Ostrom",
+    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
+    "longitude": 5.86790860,
+    "latitude": 51.81865500
+  },
+  {
+    "name": "Blommers Coffee Corner Huygens",
+    "address": "Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands",
+    "longitude": 5.86810320,
+    "latitude": 51.82433430
+  },
+  {
+    "name": "SPAR University Radboud",
+    "address": "Erasmusplein 1, 6525 HT Nijmegen, Netherlands",
+    "longitude": 5.86580110,
+    "latitude": 51.81906130
+  },
+  {
+    "name": "Coffee Corner UB",
+    "address": "Erasmuslaan 36, 6525 GG Nijmegen, Netherlands",
+    "longitude": 5.86536520,
+    "latitude": 51.81994620
+  },
+  {
+    "name": "Grand Café de Iris",
+    "address": "Thomas van Aquinostraat 4, 6525 GD Nijmegen, Netherlands",
+    "longitude": 5.86235430,
+    "latitude": 51.81919850
+  },
+  {
+    "name": "Coffee Corner Spinoza",
+    "address": "Montessorilaan 3, 6525 HR Nijmegen, Netherlands",
+    "longitude": 5.86013200,
+    "latitude": 51.81958770
+  },
+  {
+    "name": "Espressobar Hoofdingang Radboudumc",
+    "address": "Geert Grooteplein 15, 6525 EZ Nijmegen, Netherlands",
+    "longitude": 5.86024990,
+    "latitude": 51.82417050
+  },
+  {
+    "name": "Café de Aesculaaf",
+    "address": "Geert Grooteplein Noord 21, 6525 EZ Nijmegen, Netherlands",
+    "longitude": 5.86185560,
+    "latitude": 51.82491060
+  },
+  {
+    "name": "'t Dappenglaasje",
+    "address": "Philips van Leydenlaan 25, 6525 EX Nijmegen, Netherlands",
+    "longitude": 5.85807350,
+    "latitude": 51.82142040
+  },
+  {
+    "name": "Giga-Bite Huygens Canteen",
+    "address": "Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands",
+    "longitude": 5.86810320,
+    "latitude": 51.82433430
+  },
+  {
+    "name": "Theaterzaal C",
+    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
+    "longitude": 5.86790860,
+    "latitude": 51.81865500
+  },
+  {
+    "name": "Common Ground Maria Montessori",
+    "address": "Thomas van Aquinostraat 4, 6525 GD Nijmegen, Netherlands",
+    "longitude": 5.86235430,
+    "latitude": 51.81919850
+  },
+  {
+    "name": "De Ondergang Elinor Ostrom",
+    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
+    "longitude": 5.86790860,
+    "latitude": 51.81865500
+  },
+  {
+    "name": "Library of Science",
+    "address": "Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands",
+    "longitude": 5.86810320,
+    "latitude": 51.82433430
+  },
+  {
+    "name": "Law Library Grotius Building",
+    "address": "Montessorilaan 10, 6525 HR Nijmegen, Netherlands",
+    "longitude": 5.85878260,
+    "latitude": 51.81907860
+  },
+  {
+    "name": "Studentenkerk Reflection Room 00.12",
+    "address": "Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands",
+    "longitude": 5.86306560,
+    "latitude": 51.82075710
+  },
+  {
+    "name": "Studentenkerk Women’s Prayer Room 00.16a",
+    "address": "Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands",
+    "longitude": 5.86306560,
+    "latitude": 51.82075710
+  },
+  {
+    "name": "Studentenkerk Men’s Prayer Room 00.17a",
+    "address": "Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands",
+    "longitude": 5.86306560,
+    "latitude": 51.82075710
+  },
+  {
+    "name": "UB Reflection Room UB -1.02",
+    "address": "Erasmuslaan 36, 6525 GG Nijmegen, Netherlands",
+    "longitude": 5.86536520,
+    "latitude": 51.81994620
+  },
+  {
+    "name": "Transitorium Prayer Room TR 01.004",
+    "address": "Toernooiveld 5, 6525 ED Nijmegen, Netherlands",
+    "longitude": 5.87142440,
+    "latitude": 51.82376780
   }
+
 ]

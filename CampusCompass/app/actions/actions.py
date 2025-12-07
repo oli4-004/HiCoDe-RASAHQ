@@ -116,9 +116,12 @@ class ActionGetRouteDescription(Action):
             )
 
             # 2) call MapsController to get structured route data
+            mode_hint = (tracker.get_slot("travel_mode_hint") or "").strip()
+            travel_mode = llm.normalize_travel_mode(mode_hint)
             route_data = maps.get_walking_directions(
                 origin_name=source_normalized,
                 destination_name=target_normalized,
+                mode=travel_mode,
             )
 
             # 3) let the LLM turn route_data into a user-friendly message
@@ -126,6 +129,7 @@ class ActionGetRouteDescription(Action):
                 origin_name=source_normalized,
                 destination_name=target_normalized,
                 route=route_data,
+                mode=travel_mode
             )
 
         except Exception as e:
@@ -133,8 +137,28 @@ class ActionGetRouteDescription(Action):
             dispatcher.utter_message(response="utter_route_api_error")
             return []
 
-        dispatcher.utter_message(text=answer_text)
+        # 4) Stuur de route terug als meerdere bubbels + eventueel een kaartje
+        map_url: Optional[str] = None
+        if isinstance(route_data, dict):
+            map_url = route_data.get("static_map_url") or None
+
+        # Split de gegenereerde tekst op regels en stuur elke niet-lege regel als aparte bubble
+        lines = [line.strip() for line in (answer_text or "").split("\n") if line.strip()]
+        if not lines:
+            # fallback: toch één bericht sturen als er iets misging met de formatting
+            dispatcher.utter_message(text=answer_text or "Here is your route.")
+        else:
+            for line in lines:
+                dispatcher.utter_message(text=line)
+
+        # Kaartje als aparte bubble erachteraan
+        if map_url:
+            dispatcher.utter_message(
+                text="Route map",
+                image=map_url,
+            )
         return []
+
 
 class ActionClearRouteContext(Action):
     def name(self) -> Text:

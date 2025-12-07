@@ -187,3 +187,113 @@ Villa Oud Heyendael
 Address: Rene Descartesdreef 21, 6525 GL Nijmegen, Netherlands
 Longitude: 5.86475550
 Latitude: 51.82145730
+
+CultuurCafé
+Address: Mercatorpad 1, 6525 HS Nijmegen, Netherlands
+Longitude: 5.86439590
+Latitude: 51.81920960
+
+The Yard
+Address: Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86790860
+Latitude: 51.81865500
+
+Blommers Coffee Corner Elinor Ostrom
+Address: Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86790860
+Latitude: 51.81865500
+
+Blommers Coffee Corner Huygens
+Address: Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86810320
+Latitude: 51.82433430
+
+SPAR University Radboud
+Address: Erasmusplein 1, 6525 HT Nijmegen, Netherlands
+Longitude: 5.86580110
+Latitude: 51.81906130
+
+Coffee Corner UB
+Address: Erasmuslaan 36, 6525 GG Nijmegen, Netherlands
+Longitude: 5.86536520
+Latitude: 51.81994620
+
+Grand Café de Iris
+Address: Thomas van Aquinostraat 4, 6525 GD Nijmegen, Netherlands
+Longitude: 5.86235430
+Latitude: 51.81919850
+
+Coffee Corner Spinoza
+Address: Montessorilaan 3, 6525 HR Nijmegen, Netherlands
+Longitude: 5.86013200
+Latitude: 51.81958770
+
+Espressobar Hoofdingang Radboudumc
+Address: Geert Grooteplein 15, 6525 EZ Nijmegen, Netherlands
+Longitude: 5.86024990
+Latitude: 51.82417050
+
+Café de Aesculaaf
+Address: Geert Grooteplein Noord 21, 6525 EZ Nijmegen, Netherlands
+Longitude: 5.86185560
+Latitude: 51.82491060
+
+'t Dappenglaasje
+Address: Philips van Leydenlaan 25, 6525 EX Nijmegen, Netherlands
+Longitude: 5.85807350
+Latitude: 51.82142040
+
+Giga-Bite Huygens Canteen
+Address: Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86810320
+Latitude: 51.82433430
+
+Theaterzaal C Elinor Ostrom
+Address: Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86790860
+Latitude: 51.81865500
+
+Common Ground Maria Montessori
+Address: Thomas van Aquinostraat 4, 6525 GD Nijmegen, Netherlands
+Longitude: 5.86235430
+Latitude: 51.81919850
+
+De Ondergang Elinor Ostrom
+Address: Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86790860
+Latitude: 51.81865500
+
+Library of Science
+Address: Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands
+Longitude: 5.86810320
+Latitude: 51.82433430
+
+Law Library Grotius Building
+Address: Montessorilaan 10, 6525 HR Nijmegen, Netherlands
+Longitude: 5.85878260
+Latitude: 51.81907860
+
+Studentenkerk Reflection Room 00.12
+Address: Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands
+Longitude: 5.86306560
+Latitude: 51.82075710
+
+Studentenkerk Women’s Prayer Room 00.16a
+Address: Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands
+Longitude: 5.86306560
+Latitude: 51.82075710
+
+Studentenkerk Men’s Prayer Room 00.17a
+Address: Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands
+Longitude: 5.86306560
+Latitude: 51.82075710
+
+UB Reflection Room UB -1.02
+Address: Erasmuslaan 36, 6525 GG Nijmegen, Netherlands
+Longitude: 5.86536520
+Latitude: 51.81994620
+
+Transitorium Prayer Room TR 01.004
+Address: Toernooiveld 5, 6525 ED Nijmegen, Netherlands
+Longitude: 5.87142440
+Latitude: 51.82376780
