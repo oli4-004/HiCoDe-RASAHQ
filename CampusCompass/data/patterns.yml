@@ -197,25 +197,34 @@ patterns:
            "what building is that?":
            → use abbreviation_flow and fill abbreviation_raw with the code.
 
-        2) If they ask about:
-           - where the building is,
-           - what is inside,
-           - food or coffee there,
-           - study associations there,
-           - prayer rooms there,
-           - events there,
-           - opening hours of that building or a facility inside it,
-           → use the corresponding thematic flow:
+        2) If they ask about LOCATION, facilities, or usage of the
+           building, such as:
+           - "Where is EOS?"
+           - "Where is the SO building?"
+           - "Where is MM on campus?"
+           - "How do I get from HG to EOS?"
+           - "Is there a cafeteria in EOS?"
+           - "Is there a prayer room in the library?"
+           then this is NOT an abbreviation-meaning question. Instead,
+           choose the appropriate thematic flow:
+             - route_description_flow or public_transport_flow for routes,
              - food_and_drink_flow for food / non-alcoholic drinks,
              - alcohol_and_bar_flow for alcohol / borrels,
              - study_association_flow for study associations,
              - umbrella_association_flow for umbrella organisations,
              - prayer_room_flow for prayer / quiet rooms,
              - event_and_activity_flow for venues / events,
-             - public_transport_flow for "which station/bus for X",
              - opening_hours_flow when time/open/close is the main focus,
-             - other_facilities_flow for childcare, parking and similar.
+             - other_facilities_flow for childcare, parking, bike parking, etc.
            If none fits clearly, fall back to pattern_search.
+      
+       - IMPORTANT NEGATIVE EXAMPLES (NO abbreviation_flow):
+        - "Where is my lecture?"
+        - "I have another lecture after that, where is that lecture?"
+        - "Where is my class?"
+        Even if the lecture happens to be in SP, MM, etc., these questions
+        do NOT belong in abbreviation_flow. They must go to a thematic flow
+        or pattern_search depending on context.
 
       - If the user sends short random strings that do NOT match any of
         the patterns above, treat them as unclear input and prefer
@@ -476,7 +485,7 @@ patterns:
       - "Where is the Aula for graduation ceremonies?"
       - "Where do associations organise larger events?"
 
-    # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
   # TRANSPORT & ROUTES (WALK / BIKE / PUBLIC TRANSPORT)
   # ---------------------------------------------------------------------------
 
@@ -512,13 +521,20 @@ patterns:
         The patterns do NOT need to worry about canonical names or external APIs.
 
       STRICT RULES FOR RAW SLOTS:
-      - The slots source_building_raw and target_building_raw MUST ONLY contain
+      - The slots source_building_raw and target_building_raw MUST normally contain
         building names that the user explicitly mentioned in their own words
         (in the current or previous user messages).
+      - EXCEPTION: if the most recent user message uses a referring expression like
+        "there", "that place", "that building" or similar, and it clearly refers to a
+        concrete building name that the assistant just mentioned in the immediately
+        preceding turn (for example "Central Student Desk in the Berchmanianum"),
+        then you MAY copy that assistant phrase into target_building_raw or
+        source_building_raw as appropriate.
       - Do NOT invent or guess extra buildings, bus stops or locations based on
         your knowledge base. For example, do NOT set target_building_raw to
         "Erasmus building" just because you know that is the nearest bus stop for
-        EOS, if the user never wrote "Erasmus".
+        EOS, if the user never wrote "Erasmus" and is not clearly referring back to
+        that assistant phrase.
       - If the user does not mention a starting point at all (e.g. "How do I
         get to EOS?"), only fill target_building_raw = "EOS" and leave
         source_building_raw empty so the flow can ask where the user is now.
@@ -534,7 +550,8 @@ patterns:
         Tandheelkunde, UB (University Library), EOS, etc.
       - The knowledge base contains documents describing these buildings and their
         abbreviations. Use entities to mark obvious building names and codes, but
-        keep the slot values as close as possible to what the user wrote.
+        keep the slot values as close as possible to what the user wrote or, in the
+        exception above, to the clearly referenced assistant phrase.
       - If you are unsure, still try to map obvious campus building names to the
         building entity and to the appropriate slots, without inventing new names.
 
@@ -588,14 +605,15 @@ patterns:
          - If the user says "And how do I get back?" after a route from A to B,
            reuse the previous buildings, swap them, and set
            source_building_raw = previous target, target_building_raw = previous source.
-         - The "previous" buildings are stored in the slots
-           prev_source_building_raw and prev_target_building_raw by the custom
-           action action_clear_route_context, so later turns like
-           "How do I get back?" can still access them.
+         - If the user instead says something like "How can I get there as quickly as possible?"
+           and the previous assistant message clearly introduced a concrete destination
+           (for example the Central Student Desk in the Berchmanianum), you may treat
+           that destination as the current target_building_raw even if the user did not
+           type the building name again.
 
       If you cannot clearly decide, still set the buildings based on the most
       likely reading of the user's message, but never fabricate buildings that
-      were not mentioned.
+      were not mentioned or clearly referred to.
 
       WHEN NOT TO USE ROUTE_DESCRIPTION_FLOW:
       - If the question is primarily about public transport lines or which
@@ -605,22 +623,91 @@ patterns:
 
       SLOT SETTING EXPECTATIONS:
       - For every route or travel-time request, fill:
-        - source_building_raw and target_building_raw from the user's wording.
+        - source_building_raw and target_building_raw from the user's wording or,
+          in the explicit referring-expression exception above, from the clearly
+          referenced assistant phrase.
         - travel_mode_hint (see below), based ONLY on what the user actually says.
       - These slots may already be partially filled by travel_mode_clarification_flow;
         reuse existing values instead of asking again when possible.
+      - When BOTH the origin and destination buildings are clearly mentioned in
+        the same user message, you MUST fill BOTH source_building_raw and
+        target_building_raw directly from that message.
+      - In that case, you MUST NOT leave these slots empty and you MUST NOT
+        trigger questions like "Where are you now?" or "Where do you want to go?"
+        for this turn. The collect steps will reuse the filled slot values.
+      - Only ask for a missing building via utter_ask_source_building_raw or
+        utter_ask_target_building_raw when the user truly did NOT mention that
+        building in any previous turn.
 
       TRAVEL MODE HINT:
       - Always set the slot travel_mode_hint to the user's preferred mode if they clearly mention it:
         - Words like "on foot", "by foot", "walking", "walk" → travel_mode_hint = "walk".
         - Words like "by bike", "bicycle", "cycling", "fiets" → travel_mode_hint = "bike".
+        - Words like "by car", "with my car", "drive" → travel_mode_hint = "car".
         - Words like "public transport", "bus", "train", "OV", "NS", "Arriva",
           "station", "bus stop" → travel_mode_hint = "public_transport".
       - If the user only mentions campus buildings and does NOT mention any mode
         (no walking/cycling words and no OV words, e.g. "How do I get to EOS?"),
         you MUST set travel_mode_hint = "unknown" and prefer
         travel_mode_clarification_flow to ask the user for their preference.
+      - If the user only says vague speed words like "as fast as possible",
+        "as quickly as possible", "zo snel mogelijk", without naming a mode
+        such as walk/bike/bus/car, this is NOT a clear mode:
+        → set travel_mode_hint = "unknown" so the assistant will ask which mode they prefer.
       - If you really cannot tell the mode from the wording, set travel_mode_hint = "unknown".
+
+       VERY CONCRETE SLOT ASSIGNMENT EXAMPLES
+
+      1) Example: "How do I get from EOS to Aesculaaf?"
+         - intent: ask_route_description
+         - slots MUST be:
+           - source_building_raw = "EOS"
+           - target_building_raw = "Aesculaaf"
+           - travel_mode_hint = "unknown"
+         - Because both buildings are present, you MUST NOT ask
+           "Where are you now?" in this turn.
+
+      2) Example: "Hey, how do I get from Huygens to the library by bike?"
+         - intent: ask_route_description
+         - slots MUST be:
+           - source_building_raw = "Huygens"
+           - target_building_raw = "the library"
+           - travel_mode_hint = "bike"
+         - Do NOT ask again for the buildings; they are already known.
+
+      3) Example: "How do I get to EOS?"
+         - intent: ask_route_description
+         - slots MUST be:
+           - source_building_raw = "" (empty / not set)
+           - target_building_raw = "EOS"
+           - travel_mode_hint = "unknown"
+         - Because the origin is missing, it is correct that the flow will
+           later ask: "Where are you now?".
+
+      4) Example: "I am at MM, how can I get there later?"
+         - If there is no previous destination in context:
+           - intent: ask_route_description
+           - slots:
+             - source_building_raw = "MM"
+             - target_building_raw = "" (empty / not set)
+             - travel_mode_hint = "unknown"
+           - The assistant may later ask where they want to go.
+         - If there WAS a previous route from A to B and "there" clearly points
+           to B, then:
+             - source_building_raw = "MM"
+             - target_building_raw = previous target building.
+
+      5) Example follow-up: after a route from EOS to Aesculaaf,
+         the user says: "And how do I get back?"
+         - intent: ask_route_description
+         - slots MUST be:
+           - source_building_raw = prev_target_building_raw (here: "Aesculaaf")
+           - target_building_raw = prev_source_building_raw (here: "EOS")
+           - travel_mode_hint = "unknown" (unless a mode is clearly stated)
+
+      These examples are binding: when the user message matches one of these
+      patterns, you MUST set the slots exactly as shown.
+
 
   travel_mode_clarification_patterns:
     description: |
@@ -825,6 +912,25 @@ patterns:
         - "Is there a bicycle parking near the library?"
         - "Where is the fietsenstalling by Huygens?"
         - "Can I lock my bike somewhere near EOS?"
+      
+      STUDENT CARD / STUDENTENKAART / COLLEGEKAART
+
+      - When a user mentions a student card / student ID / studentenkaart / collegekaart
+        (lost, stolen, broken, or needs a new one), this is an administrative campus
+        service question, not mental health.
+      - Typical examples:
+        - "I lost my student card, where can I get a new one?"
+        - "Where can I replace my RU student ID?"
+        - "My college card is broken, what do I do?"
+
+      DECISION LOGIC (STUDENT CARD)
+      - Treat these as factual campus service questions and route them to
+        other_facilities_flow so enterprise search can be used on the
+        administrative/service docs.
+      - Do NOT route these messages to mental_health_light_flow or mental_health_severe_flow,
+        even if the user sounds upset or frustrated.
+      - The answer should point to the Central Student Desk in the Berchmanianum
+        when this is documented in the campus information.
 
       OTHER FACILITIES (IF NEEDED)
 
@@ -1011,3 +1117,16 @@ patterns:
       If the message only mentions mild, everyday stress about studies or exams
       ("I am stressed about my exam", "this is a bit overwhelming") but no clear mental health
       or crisis language, then normal campus/help flows can be used instead of mental health flows.
+
+      IMPORTANT NEGATIVE EXAMPLES (SHOULD NOT USE MENTAL HEALTH FLOWS):
+        - Pure frustration or disagreement with the bot, e.g.:
+            - "Yes you do"
+            - "wtf, you do know this"
+            - "this is really annoying"
+        - Practical problems like:
+            - lost student card, exam registration issues, timetable confusion,
+              housing, or money problems,
+          UNLESS the user explicitly says they want to die or harm themselves
+          or clearly talks about being in mental crisis.
+        - These cases should go to normal campus flows (pattern_search, other_facilities_flow,
+          opening_hours_flow, etc.), not to mental_health_light_flow or mental_health_severe_flow.

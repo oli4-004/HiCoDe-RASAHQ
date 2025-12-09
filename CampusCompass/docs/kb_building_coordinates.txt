@@ -18,12 +18,17 @@ Address: Houtlaan 4, 6525 XZ Nijmegen, Netherlands
 Longitude: 5.86616940
 Latitude: 51.81714650
 
+Central Student Desk
+Address: Houtlaan 4, 6525 XZ Nijmegen, Netherlands
+Longitude: 5.86616940
+Latitude: 51.81714650
+
 Collegezalencomplex (CC)
 Address: Mercatorpad 1, 6525 HS Nijmegen, Netherlands
 Longitude: 5.86439590
 Latitude: 51.81920960
 
-Thomas van Aquinostraat 1
+Thomas van Aquino building
 Address: Thomas van Aquinostraat 1, 6525 GD Nijmegen, Netherlands
 Longitude: 5.86427690
 Latitude: 51.81881910

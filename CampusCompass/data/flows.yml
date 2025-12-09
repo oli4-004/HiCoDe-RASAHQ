@@ -159,11 +159,14 @@ flows:
       enterprise search connector (action_trigger_search).
 
       Use this flow ONLY for messages where the user explicitly wants to
-      know what a specific code or abbreviation stands for, for example:
+      know what a specific code or abbreviation STANDS FOR or MEANS, for example:
       - "What does MM mean?"
       - "HG00.616, what building is that?"
-      - "What is EOS?"
+      - "What does EOS stand for?"
       - "Can you explain this building code?"
+
+      This is about the MEANING or FULL NAME of the code, not about its
+      physical location when the user already treats it as a building.
 
       The structure and meaning of building and room codes (MM, CC, SP,
       GR, LIN, E, GN, TvA, COMA, COMB, EOS, etc.) are described in
@@ -171,26 +174,47 @@ flows:
       patterns to decide whether a short string is likely to be a real
       building/room code or just random characters.
 
-      Two scenarios:
+      IMPORTANT: questions that start with "where is", "how do I get to",
+      "where can I find [code]/[building]" are LOCATION questions, NOT
+      abbreviation-meaning questions.
 
-      1) User already includes a code in the same message, for example:
-         "What does EOS mean?", "Where is HG00.616?", "Explain MM",
-         "Where is EOS?".
-         In that case, the LLM should:
-         - detect and extract the abbreviation or room code directly
-           from the user's message using the patterns in patterns.yml
-         - fill abbreviation_raw with that value
-         - answer immediately based on the docs
-         - NOT ask again for the code.
+      Examples that MUST NOT use abbreviation_flow:
+      - "Where is EOS?"
+      - "Where is the SO building?"
+      - "How do I get to MM from Huygens?"
+      Those should go to the appropriate thematic flow (e.g.
+      route_description_flow, public_transport_flow, event_and_activity_flow,
+      or pattern_search), not abbreviation_flow.
+
+      Two scenarios where abbreviation_flow IS correct:
+
+      1) User already includes a code in the same message AND asks about
+         its meaning/name, for example:
+         - "What does EOS mean?"
+         - "HG00.616, what building is that?"
+         - "Explain MM"
+         - "What does SP A/B -1.55 stand for?"
+
+         In that case:
+         - action_llm_prefill_abbreviation should detect and extract the
+           abbreviation or room code directly from the user's message,
+           based on the patterns in patterns.yml,
+         - abbreviation_raw is filled with that value,
+         - the assistant answers immediately based on the campus information,
+         - and MUST NOT ask again for the code.
 
       2) User asks for an abbreviation but does NOT give the code yet,
          for example:
-         "help me with an abbreviation", "I do not know what this
-         building is called", "I need help with a room code".
-         In that case, the LLM should:
-         - ask once for the code using utter_ask_abbreviation_raw
-         - wait for the user's reply with the abbreviation
-         - fill abbreviation_raw from that reply, then answer.
+         - "help me with an abbreviation"
+         - "I do not know what this building is called"
+         - "I need help with a room code"
+
+         In that case:
+         - abbreviation_raw will still be empty after
+           action_llm_prefill_abbreviation,
+         - the assistant should ask once for the code using
+           utter_ask_abbreviation_raw,
+         - then fill abbreviation_raw from the user's reply and answer.
 
       Random or obviously invalid strings:
       - If the user sends a string that does not look like a realistic
@@ -208,18 +232,20 @@ flows:
         building such as opening hours, facilities, food options, or
         location.
         Examples that should NOT use this flow:
-        "Until what time is it open on Thursdays?",
-        "Is there a cafeteria there?",
-        "Where can I get lunch near EOS?",
-        "How far is it from the library?"
+        - "Until what time is it open on Thursdays?"
+        - "Is there a cafeteria there?"
+        - "Where can I get lunch near EOS?"
+        - "How far is it from the library?"
+        - "Where is my lecture?"
+        - "I have another lecture after that, where is that lecture?"
         Those follow-up questions belong in one of the thematic
-        search flows (for example food_and_drink_flow or
-        opening_hours_flow) or, if none fits, in pattern_search, even if
-        an abbreviation (like EOS, MM, GR) was discussed in the previous
-        turn.
+        search flows (for example food_and_drink_flow,
+        event_and_activity_flow or opening_hours_flow) or, if none fits,
+        in pattern_search, even if an abbreviation (like EOS, MM, GR, SP)
+        was discussed in the previous turn.
 
       After abbreviation_raw is filled, call action_trigger_search so the
-      LLM can read the building and abbreviation documents and decide
+      LLM can read the building and abbreviation information and decide
       which building or phrase the code refers to.
 
       In the final answer, follow this structure:
@@ -227,17 +253,20 @@ flows:
       - Optionally add one short clarifying detail (for example which
         faculty or type of building it is, or where it is located).
 
-      If the abbreviation cannot be found in the docs, the LLM should:
-      - clearly state that it does not know this code
-      - avoid guessing or hallucinating a building
-      - suggest checking the Radboud timetable or the campus map instead.
+      If the abbreviation cannot be found in the campus information, the LLM should:
+      - clearly state that it does not know this code,
+      - avoid guessing or hallucinating a building,
+      - suggest checking the Radboud timetable or the campus map instead,
+      - and MUST NOT talk about "documents" or "knowledge base" to the user.
 
       After answering, STOP and WAIT. Do NOT ask a follow-up question
       unless the user comes back with thanks or a new, separate question.
     steps:
+      - action: action_llm_prefill_abbreviation
       - collect: abbreviation_raw
         ask_before_filling: false
       - action: action_trigger_search
+      - action: action_clear_abbreviation_context
         next: END
 
   food_and_drink_flow:
@@ -588,7 +617,7 @@ flows:
       - "Is the parking garage near EOS 24/7?"
       - "Which parking garage is closest to Grotius?"
       
-      BICYCLES / BIKE PARKING (NEW)
+      BICYCLES / BIKE PARKING
       
       Typical examples:
       - "Where can I park my bike at MM?"
@@ -596,13 +625,23 @@ flows:
       - "Where is the bicycle shed by Huygens?"
       - "Can I lock my bike somewhere near EOS?"
       
+      STUDENT CARD / STUDENT ID
+
+      Typical examples:
+      - "I lost my student card, where can I get a new one?"
+      - "Where can I replace my RU student ID?"
+      - "My college card is broken, what do I do?"
+      - "How much does it cost to get a new student card?"
+      
       Use this flow when:
       - the user clearly asks about childcare/daycare/Kinderopvang
         Heyendael or similar,
       - or they ask about parking on campus, specific parking
         garages, or where to park for a named building,
-      - or they ask about **bike parking, bicycle sheds, fietsrekken,
-        fietsenstallingen, or where to place/lock a bike for a building (NEW)**,
+      - or they ask about bike parking, bicycle sheds, 
+        or where to place/lock a bike for a building,
+      - or they ask about student cards / student IDs
+        as a practical, administrative campus service question,
       - and their main intent is facility/location/use, not bars,
         food, or purely opening hours.
       
@@ -623,11 +662,20 @@ flows:
         - mention whether the building has nearby bike racks or a shed,
         - describe the approximate location (e.g. front entrance, side path),
         - only use details present in the building docs.
+      - For student cards:
+        - mention where to go (e.g. the Central Student Desk in the
+          Berchmanianum),
+        - mention costs and payment options if documented (e.g. €25 by
+          debit card),
+        - and mention relevant opening hours if available.
       
-      If childcare or parking info is missing:
-      - say that these details are not specified in the knowledge
-        base,
-      - and recommend checking the Radboud website or mobility pages.
+      If specific info is missing:
+      - say that these details are not specified in the campus
+        information you can see,
+      - and recommend checking the Radboud website, campus map or
+        relevant service desk.
+      - Do NOT mention 'documents' or 'knowledge base' to the user.
+
     steps:
       - action: action_trigger_search
         next: END
@@ -825,76 +873,90 @@ flows:
   route_description_flow:
     description: |
       Handles on-campus directions between two campus buildings or places
-      when the user wants to WALK or CYCLE.
+      when the user wants to WALK, CYCLE or go by CAR.
 
       WHEN TO USE THIS FLOW
-      - The user clearly indicates a walking or cycling route, with words like
-        "on foot", "by foot", "walking", "walk", "by bike", "cycling", "fiets".
-      - OR the slot travel_mode_hint has already been collected as "walk"
-        or "bike" by travel_mode_clarification_flow.
+      - The user clearly indicates a walking, cycling or car route, with words like
+        "on foot", "by foot", "walking", "walk", "by bike", "cycling", "fiets",
+        "by car", "met de auto".
+      - OR the slot travel_mode_hint has already been collected or classified as
+        "walk", "bike" or "car" (for example by travel_mode_clarification_flow
+        or action_llm_prefill_travel_mode).
       - The focus is a route between campus buildings / places
-        (e.g. "How do I get from MM to Huygens?", "How do I walk to EOS?").
+        (e.g. "How do I get from MM to Huygens?", "How do I walk to EOS?",
+        "How do I drive from Berchmanianum to Huygens?").
 
       RELATION TO PUBLIC TRANSPORT
       - If the user explicitly talks about trains, buses, OV, stations or stops,
         this flow should NOT be used; in that case, use public_transport_flow.
       - If the user only mentions buildings (e.g. "How do I get to EOS?")
-        and does NOT mention walking/cycling or public transport, the assistant
+        and does NOT mention walking/cycling/car or public transport, the assistant
         should FIRST start travel_mode_clarification_flow to ask for the
         preferred mode, instead of guessing.
 
       SLOT BEHAVIOUR
       - By the time this flow runs, source_building_raw and/or target_building_raw
         may already be filled from a previous user message (for example in
-        travel_mode_clarification_flow).
+        travel_mode_clarification_flow or via action_llm_prefill_route_slots).
       - This flow should reuse those slots where possible and only ask the user
         for missing information.
       - After giving the route, the custom action action_clear_route_context
-        should reset the route-related slots so the assistant does not stay
-        stuck in a previous route context.
+        should reset the route-related slots (including travel_mode_hint) so
+        the assistant does not stay stuck in a previous route context.
 
     steps:
+      - action: action_llm_prefill_route_slots
+      - action: action_llm_prefill_travel_mode
       - collect: source_building_raw
         ask_before_filling: false
       - collect: target_building_raw
+        ask_before_filling: false
+      - collect: travel_mode_hint
         ask_before_filling: false
       - action: action_get_route_description
       - action: action_clear_route_context
         next: END
 
+
   travel_mode_clarification_flow:
     description: |
-      Clarifies whether the user wants to WALK/CYCLE or use PUBLIC TRANSPORT
+      Clarifies whether the user wants to WALK/CYCLE/CAR or use PUBLIC TRANSPORT
       when the mode is not obvious from their question.
 
       WHEN TO USE THIS FLOW
       - The user asks how to get to or from one or more campus buildings
         (e.g. "How do I get to EOS?", "How do I get from MM to HG?"),
-        BUT they do NOT clearly mention walking, cycling or public transport.
-      - In that case, the assistant MUST NOT guess a mode (walk vs OV).
+        BUT they do NOT clearly mention walking, cycling, car or public transport.
+      - In that case, the assistant MUST NOT guess a mode (walk vs OV vs car).
         Instead, it should start this flow.
 
       SLOT BEHAVIOUR
-      - Before asking about the travel mode, this flow tries to silently fill
-        source_building_raw and target_building_raw from the user's message,
-        using entity/slot mappings.
-      - Because ask_before_filling is false for these slots, the user is NOT
+      - Before asking about the travel mode, this flow first tries to silently fill
+        source_building_raw and target_building_raw from the user's message
+        using entity/slot mappings and action_llm_prefill_route_slots.
+      - It ALSO tries to classify the travel_mode_hint directly from the user's
+        message using action_llm_prefill_travel_mode (which calls the LLM).
+      - Because ask_before_filling is false for the building slots, the user is NOT
         asked extra questions here; existing values are simply reused.
-      - This ensures that a question like "How do I get to EOS?" already
-        populates target_building_raw = "EOS", so that route_description_flow
-        or public_transport_flow can reuse it later.
+      - If travel_mode_hint is still empty or 'unknown' after prefill, the flow
+        collects travel_mode_hint by asking a concrete question such as:
+        "Do you want to walk, cycle, go by car, or use public transport (bus/train)?"
+        (implemented via utter_ask_travel_mode_hint in the domain).
+      - This ensures that a question like "How do I get to EOS?" already populates
+        target_building_raw = "EOS", and that questions like
+        "How do I get there by train?" can often be classified as
+        travel_mode_hint = "public_transport" without asking again.
 
       BEHAVIOUR
-      - The flow then collects the slot travel_mode_hint by asking a question like:
-        "Do you want to walk, cycle, or use public transport (bus/train)?"
-        (implemented via utter_ask_travel_mode_hint in the domain).
       - After travel_mode_hint is filled, the flow ends.
       - The next user message (often a short answer like "by foot" or "by bus")
-        allows the patterns to route to:
-        - route_description_flow when travel_mode_hint = "walk" or "bike",
+        allows the patterns and policies to route to:
+        - route_description_flow when travel_mode_hint = "walk", "bike" or "car",
         - public_transport_flow when travel_mode_hint = "public_transport".
 
     steps:
+      - action: action_llm_prefill_route_slots
+      - action: action_llm_prefill_travel_mode
       - collect: source_building_raw
         ask_before_filling: false
       - collect: target_building_raw
@@ -913,7 +975,7 @@ flows:
         "train", "bus", "tram", "OV", "NS", "Arriva", "station", "bus stop",
         line numbers, etc.
       - OR the slot travel_mode_hint is "public_transport", for example after
-        travel_mode_clarification_flow.
+        travel_mode_clarification_flow or action_llm_prefill_travel_mode.
       - Typical examples:
         - "How do I get to campus by train?"
         - "Which bus should I take to EOS?"
@@ -931,16 +993,20 @@ flows:
 
       SLOT / STATE CLEANUP
       - This flow may also use source_building_raw and target_building_raw
-        to ground its advice, but after answering it should not leave the
-        conversation stuck in that route context.
-      - The custom action action_clear_route_context is called at the end to:
+        to ground its advice (for example 'from Nijmegen Centraal to EOS').
+        action_llm_prefill_route_slots is used to extract these where possible.
+      - After answering it should not leave the conversation stuck in that
+        route context. The custom action action_clear_route_context is called
+        at the end to:
         - reset travel_mode_hint to "unknown",
         - clear source_building_raw and target_building_raw (and optionally
           copy them to previous-* slots if you use those).
 
       BEHAVIOUR
       - Use action_trigger_search to consult campus transport information and
-        building/location documents via enterprise search.
+        building/location documents via enterprise search (including the
+        detailed public-transport context about Nijmegen Centraal, Nijmegen
+        Heyendaal, bus 10, 12, 300, etc.).
       - Answer with:
         - the relevant station(s) or bus stop(s),
         - the general line or direction (if documented),
@@ -956,6 +1022,7 @@ flows:
           for real-time route advice.
 
     steps:
+      - action: action_llm_prefill_route_slots
       - action: action_trigger_search
       - action: action_clear_route_context
         next: END

@@ -2,362 +2,346 @@
   {
     "name": "Aula",
     "address": "Comeniuslaan 2, 6525 HP Nijmegen, Netherlands",
-    "longitude": 5.85710040,
-    "latitude": 51.82042520
+    "longitude": 5.8571004,
+    "latitude": 51.8204252,
+    "venues": []
   },
   {
     "name": "Comenius building B",
     "address": "Comeniuslaan 4, 6525 HP Nijmegen, Netherlands",
-    "longitude": 5.85691450,
-    "latitude": 51.81962720
+    "longitude": 5.8569145,
+    "latitude": 51.8196272,
+    "venues": []
   },
   {
     "name": "Comenius building A",
     "address": "Comeniuslaan 6, 6525 HP Nijmegen, Netherlands",
-    "longitude": 5.85674780,
-    "latitude": 51.81895160
+    "longitude": 5.8567478,
+    "latitude": 51.8189516,
+    "venues": []
   },
   {
     "name": "Berchmanianum (Academiegebouw)",
     "address": "Houtlaan 4, 6525 XZ Nijmegen, Netherlands",
-    "longitude": 5.86616940,
-    "latitude": 51.81714650
+    "longitude": 5.8661694,
+    "latitude": 51.8171465,
+    "venues": [
+      {
+        "name": "Central Student Desk"
+      }
+    ]
   },
   {
     "name": "Collegezalencomplex (CC)",
     "address": "Mercatorpad 1, 6525 HS Nijmegen, Netherlands",
-    "longitude": 5.86439590,
-    "latitude": 51.81920960
+    "longitude": 5.8643959,
+    "latitude": 51.8192096,
+    "venues": [
+      {
+        "name": "CultuurCaf\u00e9"
+      }
+    ]
   },
   {
     "name": "Thomas van Aquino",
     "address": "Thomas van Aquinostraat 1, 6525 GD Nijmegen, Netherlands",
-    "longitude": 5.86427690,
-    "latitude": 51.81881910
+    "longitude": 5.8642769,
+    "latitude": 51.8188191,
+    "venues": []
   },
   {
     "name": "Maria Montessori building",
     "address": "Thomas van Aquinostraat 4, 6525 GD Nijmegen, Netherlands",
-    "longitude": 5.86235430,
-    "latitude": 51.81919850
+    "longitude": 5.8623543,
+    "latitude": 51.8191985,
+    "venues": [
+      {
+        "name": "Grand Caf\u00e9 de Iris"
+      },
+      {
+        "name": "Common Ground Maria Montessori"
+      }
+    ]
   },
   {
     "name": "Spinoza building",
     "address": "Montessorilaan 3, 6525 HR Nijmegen, Netherlands",
-    "longitude": 5.86013200,
-    "latitude": 51.81958770
+    "longitude": 5.860132,
+    "latitude": 51.8195877,
+    "venues": [
+      {
+        "name": "Coffee Corner Spinoza"
+      }
+    ]
   },
   {
     "name": "Grotius building",
     "address": "Montessorilaan 10, 6525 HR Nijmegen, Netherlands",
-    "longitude": 5.85878260,
-    "latitude": 51.81907860
+    "longitude": 5.8587826,
+    "latitude": 51.8190786,
+    "venues": [
+      {
+        "name": "Law Library Grotius Building"
+      }
+    ]
   },
   {
     "name": "Erasmus building",
     "address": "Erasmusplein 1, 6525 HT Nijmegen, Netherlands",
-    "longitude": 5.86580110,
-    "latitude": 51.81906130
+    "longitude": 5.8658011,
+    "latitude": 51.8190613,
+    "venues": [
+      {
+        "name": "SPAR University Radboud"
+      }
+    ]
   },
   {
     "name": "The Refter",
     "address": "Erasmusplein 3, 6525 HT Nijmegen, Netherlands",
-    "longitude": 5.86530600,
-    "latitude": 51.81904930
+    "longitude": 5.865306,
+    "latitude": 51.8190493,
+    "venues": []
   },
   {
     "name": "Werf GWT / Central Warehouse",
     "address": "Erasmuslaan 5, 6525 GE Nijmegen, Netherlands",
-    "longitude": 5.86104510,
-    "latitude": 51.82108250
+    "longitude": 5.8610451,
+    "latitude": 51.8210825,
+    "venues": []
   },
   {
     "name": "Paviljoen",
     "address": "Erasmuslaan 9, 6525 GE Nijmegen, Netherlands",
-    "longitude": 5.86336130,
-    "latitude": 51.82074720
+    "longitude": 5.8633613,
+    "latitude": 51.8207472,
+    "venues": []
   },
   {
     "name": "Studentenkerk (University Student Church)",
     "address": "Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands",
-    "longitude": 5.86306560,
-    "latitude": 51.82075710
+    "longitude": 5.8630656,
+    "latitude": 51.8207571,
+    "venues": [
+      {
+        "name": "Studentenkerk Reflection Room 00.12"
+      },
+      {
+        "name": "Studentenkerk Women\u2019s Prayer Room 00.16a"
+      },
+      {
+        "name": "Studentenkerk Men\u2019s Prayer Room 00.17a"
+      }
+    ]
   },
   {
     "name": "University Library (UB)",
     "address": "Erasmuslaan 36, 6525 GG Nijmegen, Netherlands",
-    "longitude": 5.86536520,
-    "latitude": 51.81994620
+    "longitude": 5.8653652,
+    "latitude": 51.8199462,
+    "venues": [
+      {
+        "name": "Coffee Corner UB"
+      },
+      {
+        "name": "UB Reflection Room UB -1.02"
+      }
+    ]
   },
   {
     "name": "Parking garage Gymnasion (P7b)",
     "address": "Erasmuslaan, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86625500,
-    "latitude": 51.82016610
+    "longitude": 5.866255,
+    "latitude": 51.8201661,
+    "venues": []
   },
   {
     "name": "Parking area P7a",
     "address": "Erasmuslaan, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86625500,
-    "latitude": 51.82016610
+    "longitude": 5.866255,
+    "latitude": 51.8201661,
+    "venues": []
   },
   {
     "name": "Huygens building",
     "address": "Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86810320,
-    "latitude": 51.82433430
+    "longitude": 5.8681032,
+    "latitude": 51.8243343,
+    "venues": [
+      {
+        "name": "Blommers Coffee Corner Huygens"
+      },
+      {
+        "name": "Giga-Bite Huygens Canteen"
+      },
+      {
+        "name": "Library of Science"
+      }
+    ]
   },
   {
     "name": "Linnaeus building",
     "address": "Heyendaalseweg 137, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86842340,
-    "latitude": 51.82288850
+    "longitude": 5.8684234,
+    "latitude": 51.8228885,
+    "venues": []
   },
   {
     "name": "Elinor Ostrom building",
     "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86790860,
-    "latitude": 51.81865500
-  },
-  {
-    "name": "Gymnasion (Radboud Sports Centre)",
-    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86790860,
-    "latitude": 51.81865500
+    "longitude": 5.8679086,
+    "latitude": 51.818655,
+    "venues": [
+      {
+        "name": "Gymnasion (Radboud Sports Centre)"
+      },
+      {
+        "name": "The Yard"
+      },
+      {
+        "name": "Blommers Coffee Corner Elinor Ostrom"
+      },
+      {
+        "name": "Theaterzaal C"
+      },
+      {
+        "name": "De Ondergang Elinor Ostrom"
+      }
+    ]
   },
   {
     "name": "Experience Center Radboudumc",
     "address": "Geert Grooteplein 15, 6525 EZ Nijmegen, Netherlands",
-    "longitude": 5.86024990,
-    "latitude": 51.82417050
+    "longitude": 5.8602499,
+    "latitude": 51.8241705,
+    "venues": [
+      {
+        "name": "Espressobar Hoofdingang Radboudumc"
+      }
+    ]
   },
   {
     "name": "Huize Heyendael",
     "address": "Geert Grooteplein Noord 9, 6525 EZ Nijmegen, Netherlands",
-    "longitude": 5.85909110,
-    "latitude": 51.82421230
+    "longitude": 5.8590911,
+    "latitude": 51.8242123,
+    "venues": []
   },
   {
     "name": "Study Center Radboudumc",
     "address": "Geert Grooteplein Noord 21, 6525 EZ Nijmegen, Netherlands",
-    "longitude": 5.86185560,
-    "latitude": 51.82491060
+    "longitude": 5.8618556,
+    "latitude": 51.8249106,
+    "venues": [
+      {
+        "name": "Caf\u00e9 de Aesculaaf"
+      }
+    ]
   },
   {
     "name": "Forum",
     "address": "Geert Grooteplein Zuid 41, 6525 GA Nijmegen, Netherlands",
-    "longitude": 5.86663660,
-    "latitude": 51.82372980
+    "longitude": 5.8666366,
+    "latitude": 51.8237298,
+    "venues": []
   },
   {
     "name": "Dentistry (Tandheelkunde)",
     "address": "Philips van Leydenlaan 25, 6525 EX Nijmegen, Netherlands",
-    "longitude": 5.85807350,
-    "latitude": 51.82142040
+    "longitude": 5.8580735,
+    "latitude": 51.8214204,
+    "venues": [
+      {
+        "name": "'t Dappenglaasje"
+      }
+    ]
   },
   {
     "name": "Mercator III",
     "address": "Toernooiveld 1, 6525 ED Nijmegen, Netherlands",
-    "longitude": 5.86915970,
-    "latitude": 51.82202560
+    "longitude": 5.8691597,
+    "latitude": 51.8220256,
+    "venues": []
   },
   {
     "name": "Transitorium",
     "address": "Toernooiveld 5, 6525 ED Nijmegen, Netherlands",
-    "longitude": 5.87142440,
-    "latitude": 51.82376780
+    "longitude": 5.8714244,
+    "latitude": 51.8237678,
+    "venues": [
+      {
+        "name": "Transitorium Prayer Room TR 01.004"
+      }
+    ]
   },
   {
     "name": "HFML-FELIX",
     "address": "Toernooiveld 7, 6525 ED Nijmegen, Netherlands",
-    "longitude": 5.87080560,
-    "latitude": 51.82308660
+    "longitude": 5.8708056,
+    "latitude": 51.8230866,
+    "venues": []
   },
   {
     "name": "Nanolab",
     "address": "Toernooiveld 7b, 6525 ED Nijmegen, Netherlands",
-    "longitude": 5.87048720,
-    "latitude": 51.82284780
+    "longitude": 5.8704872,
+    "latitude": 51.8228478,
+    "venues": []
   },
   {
     "name": "Logistics Centre",
     "address": "Toernooiveld 8, 6525 ED Nijmegen, Netherlands",
-    "longitude": 5.86976160,
-    "latitude": 51.82318670
+    "longitude": 5.8697616,
+    "latitude": 51.8231867,
+    "venues": []
   },
   {
     "name": "Greenhouses and experimental garden",
     "address": "Toernooiveld 11, 6525 ED Nijmegen, Netherlands",
-    "longitude": 5.87012180,
-    "latitude": 51.82247450
+    "longitude": 5.8701218,
+    "latitude": 51.8224745,
+    "venues": []
   },
   {
     "name": "Daycare centre Kinderopvang Heyendael",
     "address": "Toernooiveld 15, 6525 ED Nijmegen, Netherlands",
-    "longitude": 5.87202300,
-    "latitude": 51.82264130
+    "longitude": 5.872023,
+    "latitude": 51.8226413,
+    "venues": []
   },
   {
     "name": "University Business Centre (UBC)",
     "address": "Toernooiveld 100-154, 6525 EC Nijmegen, Netherlands",
-    "longitude": 5.87035520,
-    "latitude": 51.82395290
+    "longitude": 5.8703552,
+    "latitude": 51.8239529,
+    "venues": []
   },
   {
     "name": "Mercator I",
     "address": "Toernooiveld 200-208, 6525 EC Nijmegen, Netherlands",
-    "longitude": 5.87035520,
-    "latitude": 51.82395290
+    "longitude": 5.8703552,
+    "latitude": 51.8239529,
+    "venues": []
   },
   {
     "name": "Mercator II",
     "address": "Toernooiveld 300-318, 6525 EC Nijmegen, Netherlands",
-    "longitude": 5.87035520,
-    "latitude": 51.82395290
+    "longitude": 5.8703552,
+    "latitude": 51.8239529,
+    "venues": []
   },
   {
     "name": "Trigon (Donders Institute)",
     "address": "Kapittelweg 29, 6525 EN Nijmegen, Netherlands",
-    "longitude": 5.86327010,
-    "latitude": 51.82629080
+    "longitude": 5.8632701,
+    "latitude": 51.8262908,
+    "venues": []
   },
   {
     "name": "Villa Oud Heyendael",
     "address": "Rene Descartesdreef 21, 6525 GL Nijmegen, Netherlands",
-    "longitude": 5.86475550,
-    "latitude": 51.82145730
-  },
-  {
-    "name": "CultuurCafé",
-    "address": "Mercatorpad 1, 6525 HS Nijmegen, Netherlands",
-    "longitude": 5.86439590,
-    "latitude": 51.81920960
-  },
-  {
-    "name": "The Yard",
-    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86790860,
-    "latitude": 51.81865500
-  },
-  {
-    "name": "Blommers Coffee Corner Elinor Ostrom",
-    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86790860,
-    "latitude": 51.81865500
-  },
-  {
-    "name": "Blommers Coffee Corner Huygens",
-    "address": "Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86810320,
-    "latitude": 51.82433430
-  },
-  {
-    "name": "SPAR University Radboud",
-    "address": "Erasmusplein 1, 6525 HT Nijmegen, Netherlands",
-    "longitude": 5.86580110,
-    "latitude": 51.81906130
-  },
-  {
-    "name": "Coffee Corner UB",
-    "address": "Erasmuslaan 36, 6525 GG Nijmegen, Netherlands",
-    "longitude": 5.86536520,
-    "latitude": 51.81994620
-  },
-  {
-    "name": "Grand Café de Iris",
-    "address": "Thomas van Aquinostraat 4, 6525 GD Nijmegen, Netherlands",
-    "longitude": 5.86235430,
-    "latitude": 51.81919850
-  },
-  {
-    "name": "Coffee Corner Spinoza",
-    "address": "Montessorilaan 3, 6525 HR Nijmegen, Netherlands",
-    "longitude": 5.86013200,
-    "latitude": 51.81958770
-  },
-  {
-    "name": "Espressobar Hoofdingang Radboudumc",
-    "address": "Geert Grooteplein 15, 6525 EZ Nijmegen, Netherlands",
-    "longitude": 5.86024990,
-    "latitude": 51.82417050
-  },
-  {
-    "name": "Café de Aesculaaf",
-    "address": "Geert Grooteplein Noord 21, 6525 EZ Nijmegen, Netherlands",
-    "longitude": 5.86185560,
-    "latitude": 51.82491060
-  },
-  {
-    "name": "'t Dappenglaasje",
-    "address": "Philips van Leydenlaan 25, 6525 EX Nijmegen, Netherlands",
-    "longitude": 5.85807350,
-    "latitude": 51.82142040
-  },
-  {
-    "name": "Giga-Bite Huygens Canteen",
-    "address": "Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86810320,
-    "latitude": 51.82433430
-  },
-  {
-    "name": "Theaterzaal C",
-    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86790860,
-    "latitude": 51.81865500
-  },
-  {
-    "name": "Common Ground Maria Montessori",
-    "address": "Thomas van Aquinostraat 4, 6525 GD Nijmegen, Netherlands",
-    "longitude": 5.86235430,
-    "latitude": 51.81919850
-  },
-  {
-    "name": "De Ondergang Elinor Ostrom",
-    "address": "Heyendaalseweg 141, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86790860,
-    "latitude": 51.81865500
-  },
-  {
-    "name": "Library of Science",
-    "address": "Heyendaalseweg 135, 6525 AJ Nijmegen, Netherlands",
-    "longitude": 5.86810320,
-    "latitude": 51.82433430
-  },
-  {
-    "name": "Law Library Grotius Building",
-    "address": "Montessorilaan 10, 6525 HR Nijmegen, Netherlands",
-    "longitude": 5.85878260,
-    "latitude": 51.81907860
-  },
-  {
-    "name": "Studentenkerk Reflection Room 00.12",
-    "address": "Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands",
-    "longitude": 5.86306560,
-    "latitude": 51.82075710
-  },
-  {
-    "name": "Studentenkerk Women’s Prayer Room 00.16a",
-    "address": "Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands",
-    "longitude": 5.86306560,
-    "latitude": 51.82075710
-  },
-  {
-    "name": "Studentenkerk Men’s Prayer Room 00.17a",
-    "address": "Erasmuslaan 9a, 6525 GE Nijmegen, Netherlands",
-    "longitude": 5.86306560,
-    "latitude": 51.82075710
-  },
-  {
-    "name": "UB Reflection Room UB -1.02",
-    "address": "Erasmuslaan 36, 6525 GG Nijmegen, Netherlands",
-    "longitude": 5.86536520,
-    "latitude": 51.81994620
-  },
-  {
-    "name": "Transitorium Prayer Room TR 01.004",
-    "address": "Toernooiveld 5, 6525 ED Nijmegen, Netherlands",
-    "longitude": 5.87142440,
-    "latitude": 51.82376780
+    "longitude": 5.8647555,
+    "latitude": 51.8214573,
+    "venues": []
   }
-
 ]

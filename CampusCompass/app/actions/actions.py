@@ -39,6 +39,46 @@ def get_maps_controller() -> MapsController:
     return _maps_controller
 
 
+def build_history_snippet(tracker: Tracker, max_messages: int = 10) -> str:
+    """
+    Build a short conversation snippet from the last few user+assistant
+    messages, in chronological order, with explicit prefixes.
+
+    Example:
+
+        User: Oh no! I lost my student card...
+        Assistant: You can request a new student card at the Central Student Desk in the Berchmanianum.
+        User: How can I get there as quickly as possible?
+    """
+    lines: List[str] = []
+
+    # Walk backwards through events and collect the last N text messages
+    for e in reversed(tracker.events):
+        ev_type = e.get("event")
+        if ev_type not in ("user", "bot"):
+            continue
+
+        text = (e.get("text") or "").strip()
+        if not text:
+            continue
+
+        prefix = "User" if ev_type == "user" else "Assistant"
+        lines.append(f"{prefix}: {text}")
+
+        if len(lines) >= max_messages:
+            break
+
+    if not lines:
+        return ""
+
+    # We built it backwards; reverse to chronological order
+    return "\n".join(reversed(lines))
+
+
+# ---------------------------------------------------------------------------
+# SMALLTALK
+# ---------------------------------------------------------------------------
+
 class ActionSmalltalkLLM(Action):
     """
     Generate ONE short, friendly sentence that reacts to off-topic smalltalk,
@@ -64,6 +104,10 @@ class ActionSmalltalkLLM(Action):
         dispatcher.utter_message(text=reply)
         return []
 
+
+# ---------------------------------------------------------------------------
+# ROUTES & TRAVEL MODE
+# ---------------------------------------------------------------------------
 
 class ActionGetRouteDescription(Action):
     """
@@ -118,6 +162,7 @@ class ActionGetRouteDescription(Action):
             # 2) call MapsController to get structured route data
             mode_hint = (tracker.get_slot("travel_mode_hint") or "").strip()
             travel_mode = llm.normalize_travel_mode(mode_hint)
+            logger.info("[ROUTE] normalized_mode=%s", travel_mode)
             route_data = maps.get_walking_directions(
                 origin_name=source_normalized,
                 destination_name=target_normalized,
@@ -151,7 +196,6 @@ class ActionGetRouteDescription(Action):
             for line in lines:
                 dispatcher.utter_message(text=line)
 
-        # Kaartje als aparte bubble erachteraan
         if map_url:
             dispatcher.utter_message(
                 text="Route map",
@@ -190,3 +234,189 @@ class ActionClearRouteContext(Action):
 
         return events
 
+
+class ActionLLMPrefillRouteSlots(Action):
+    """
+    Use the LLM to prefill source_building_raw and target_building_raw
+    from the latest user message.
+
+    - Does NOT ask the user anything.
+    - Only runs on the latest text; no extra context.
+    - Respects existing slot values (does not overwrite them).
+    """
+
+    def name(self) -> Text:
+        return "action_llm_prefill_route_slots"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[Text, Any],
+    ) -> List[EventType]:
+        events: List[EventType] = []
+
+        # Respect existing slots: if both are already set, do nothing.
+        current_source = (tracker.get_slot("source_building_raw") or "").strip()
+        current_target = (tracker.get_slot("target_building_raw") or "").strip()
+
+        if current_source and current_target:
+            return events
+
+        prev_source = (tracker.get_slot("prev_source_building_raw") or "").strip()
+        prev_target = (tracker.get_slot("prev_target_building_raw") or "").strip()
+
+        history_snippet = build_history_snippet(tracker, max_messages=10)
+        if not history_snippet:
+            return events
+
+        llm = get_llm_controller()
+
+        try:
+            result = llm.extract_route_entities(
+                history_snippet,
+                prev_source=prev_source or None,
+                prev_destination=prev_target or None,
+            )
+        except Exception as e:
+            logger.error(f"[ActionLLMPrefillRouteSlots] extract_route_entities failed: {e}")
+            return events
+
+        src = (result.get("source") or "").strip() if result else ""
+        tgt = (result.get("destination") or "").strip() if result else ""
+
+        logger.info(
+            "[ActionLLMPrefillRouteSlots] from text=%r -> source=%r, destination=%r",
+            history_snippet,
+            src,
+            tgt,
+        )
+
+        if not current_source and src:
+            events.append(SlotSet("source_building_raw", src))
+        if not current_target and tgt:
+            events.append(SlotSet("target_building_raw", tgt))
+
+        return events
+
+
+class ActionLLMPrefillTravelMode(Action):
+    """
+    Use the LLM to prefill the travel_mode_hint slot from the latest
+    user message.
+
+    - Does NOT ask the user anything.
+    - Only looks at the latest text; no extra context.
+    - Respects existing slot values (does not overwrite a non-unknown value).
+    """
+
+    def name(self) -> Text:
+        return "action_llm_prefill_travel_mode"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[Text, Any],
+    ) -> List[EventType]:
+        events: List[EventType] = []
+
+        current_hint = (tracker.get_slot("travel_mode_hint") or "").strip().lower()
+        # Respect an already set, meaningful hint
+        if current_hint and current_hint != "unknown":
+            return events
+
+        history_snippet = build_history_snippet(tracker, max_messages=10)
+        if not history_snippet:
+            return events
+
+        llm = get_llm_controller()
+
+        try:
+            classified = llm.classify_travel_mode_hint(history_snippet)
+        except Exception as e:
+            logger.error(f"[ActionLLMPrefillTravelMode] classify_travel_mode_hint failed: {e}")
+            return events
+
+        mode_hint = (classified or "").strip().lower()
+        logger.info(
+            "[ActionLLMPrefillTravelMode] from text=%r -> travel_mode_hint=%r",
+            history_snippet,
+            mode_hint,
+        )
+
+        if mode_hint and mode_hint != "unknown":
+            events.append(SlotSet("travel_mode_hint", mode_hint))
+
+        return events
+
+
+# ---------------------------------------------------------------------------
+# ABBREVIATIONS
+# ---------------------------------------------------------------------------
+
+class ActionLLMPrefillAbbreviation(Action):
+    """
+    Use the LLM to prefill the abbreviation_raw slot from the latest
+    user message.
+
+    - Does NOT ask the user anything.
+    - Only looks at the latest text; no extra context.
+    - Respects an existing abbreviation_raw (does not overwrite it).
+    """
+
+    def name(self) -> Text:
+        return "action_llm_prefill_abbreviation"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[Text, Any],
+    ) -> List[EventType]:
+        events: List[EventType] = []
+
+        current_abbr = (tracker.get_slot("abbreviation_raw") or "").strip()
+        if current_abbr:
+            # Already set → do not overwrite.
+            return events
+
+        history_snippet = build_history_snippet(tracker, max_messages=10)
+        if not history_snippet:
+            return events
+
+        llm = get_llm_controller()
+
+        try:
+            extracted = llm.extract_abbreviation(history_snippet)
+        except Exception as e:
+            logger.error(f"[ActionLLMPrefillAbbreviation] extract_abbreviation failed: {e}")
+            return events
+
+        abbr = (extracted or "").strip()
+        logger.info(
+            "[ActionLLMPrefillAbbreviation] from text=%r -> abbreviation_raw=%r",
+            history_snippet,
+            abbr,
+        )
+
+        if abbr:
+            events.append(SlotSet("abbreviation_raw", abbr))
+
+        return events
+
+
+class ActionClearAbbreviationContext(Action):
+    def name(self) -> Text:
+        return "action_clear_abbreviation_context"
+
+    def run(
+            self,
+            dispatcher: CollectingDispatcher,
+            tracker: Tracker,
+            domain: Dict[Text, Any],
+    ) -> List[EventType]:
+        events: List[EventType] = []
+        events.append(SlotSet("abbreviation_raw", None))
+
+        return events

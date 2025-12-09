@@ -133,7 +133,7 @@ responses:
     - text: "Currently I am unable to get you the correct route myself. I recommend using Google Maps."
 
   utter_ask_travel_mode_hint:
-    - text: "Do you want to walk, cycle, or use public transport (bus/train)?"
+    - text: "Do you want to walk, cycle, drive or use public transport (bus/train)?"
 
   # ---------------------------------------------------------------------------
   # FALLBACK / OUT-OF-SCOPE (fallback_flow)
@@ -244,6 +244,21 @@ responses:
         rephrase: true
 
 actions:
+  # ---------------------------------------------------------------------------
+  # SMALLTALK
+  # ---------------------------------------------------------------------------
   - action_smalltalk_llm
+
+  # ---------------------------------------------------------------------------
+  # ROUTES & TRAVEL MODE
+  # ---------------------------------------------------------------------------
+  - action_llm_prefill_route_slots
+  - action_llm_prefill_travel_mode
   - action_get_route_description
   - action_clear_route_context
+
+  # ---------------------------------------------------------------------------
+  # ABBREVIATIONS
+  # ---------------------------------------------------------------------------
+  - action_llm_prefill_abbreviation
+  - action_clear_abbreviation_context

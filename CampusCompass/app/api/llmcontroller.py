@@ -205,8 +205,93 @@ class LLMController:
 
         # Join and truncate so we do not send an enormous prompt
         combined = "\n\n".join(parts)
-        self._building_docs_text = combined[:12000]  # keep it reasonably small
+        self._building_docs_text = combined  # keep it reasonably small
         return self._building_docs_text
+
+    # ---------------------------------------------------------------------
+    # ABBREVIATIONS: EXTRACT SINGLE BUILDING / ROOM CODE
+    # ---------------------------------------------------------------------
+    def extract_abbreviation(self, user_text: str) -> str:
+        """
+        From a single user message, extract at most ONE relevant
+        Radboud building / room code or abbreviation that the user is
+        asking about.
+
+        Examples of what to extract:
+        - MM, SP, CC, GR, LIN, E, GN, EOS, TvA, COMA, COMB, ELN, HG
+        - Room-like codes such as:
+          - MM 01.029, SP A/B -1.55, E.01.15, GR 0.100, etc.
+
+        Rules:
+        - Return exactly the code/string as it appears in the user text,
+          trimmed of leading/trailing spaces.
+        - If there are multiple plausible codes, choose the ONE that is
+          most central to the user's question.
+        - If there is NO realistic building/room code in the message,
+          return an empty string.
+
+        The snippet may contain multiple user and assistant messages.
+        You must choose the most recent explicit USER mention of a
+        realistic building/room code.
+
+        This is used to prefill the abbreviation_raw slot before we ask
+        the user anything in abbreviation_flow.
+        """
+
+        snippet = _clean(user_text)
+        if not snippet:
+            return ""
+        if not self.client:
+            return ""
+
+        system_msg = (
+            "You are CampusCompass, a campus assistant at Radboud University Nijmegen.\n"
+            "You receive a SHORT CONVERSATION SNIPPET with multiple lines, each starting\n"
+            "with 'User:' or 'Assistant:'. Your job is to extract at most ONE building/\n"
+            "room abbreviation or code that the user is currently asking about.\n"
+            "\n"
+            "VALID EXAMPLES:\n"
+            "- MM, SP, CC, GR, LIN, E, GN, EOS, TvA, COMA, COMB, ELN, HG\n"
+            "- Room codes like 'MM 01.029', 'SP A/B -1.55', 'E.01.15', 'GR 0.100'.\n"
+            "\n"
+            "RULES:\n"
+            "- Only consider USER lines when deciding which code to output.\n"
+            "- The snippet is in chronological order. If multiple codes appear in\n"
+            "  different USER lines, you MUST choose the most recent one that the\n"
+            "  user is clearly confused about or asking to explain.\n"
+            "- Return EXACTLY the substring for that code, as it appears in the\n"
+            "  user's text (no extra words).\n"
+            "- If there is NO realistic building/room code in any USER line,\n"
+            "  return an empty string.\n"
+            "\n"
+            "IMPORTANT OUTPUT RULES:\n"
+            "- If you found a code, output ONLY that code, nothing else.\n"
+            "- If you did NOT find any code, output exactly an empty string.\n"
+        )
+
+        user_msg = f"CONVERSATION_SNIPPET:\n{snippet}"
+
+        text = self._chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            model="gpt-4o-mini",
+            temperature=0.0,
+            max_completion_tokens=16,
+        )
+
+        if not text:
+            return ""
+
+        # We expect either a single code or an empty string
+        code = text.strip()
+        # Very small safety: if the LLM mistakenly adds spaces/newlines
+        # around an empty string, normalise that.
+        if not code:
+            return ""
+
+        return code
 
     # ---------------------------------------------------------------------
     # ROUTE: NORMALIZE TRAVEL MODE HINT → GOOGLE MAPS MODE
@@ -273,6 +358,222 @@ class LLMController:
 
         # Safety fallback
         return "walking"
+
+    # ---------------------------------------------------------------------
+    # ROUTE: CLASSIFY TRAVEL MODE HINT FOR FLOW ROUTING
+    # ---------------------------------------------------------------------
+    def classify_travel_mode_hint(self, user_text: str) -> str:
+        """
+        Look at a short conversation snippet and classify the intended
+        travel mode into one of:
+
+            - 'walk'
+            - 'bike'
+            - 'car'
+            - 'public_transport'
+            - 'unknown'
+
+        The snippet may contain several user and assistant lines. You must
+        prioritise the most recent user message that clearly talks about
+        travelling or how they want to go somewhere.
+        """
+
+        snippet = _clean(user_text)
+        if not snippet:
+            return "unknown"
+        if not self.client:
+            return "unknown"
+
+        system_msg = (
+            "You are CampusCompass, a campus assistant at Radboud University Nijmegen.\n"
+            "You receive a SHORT CONVERSATION SNIPPET with multiple lines, each starting\n"
+            "with 'User:' or 'Assistant:'. Your job is to classify the intended main\n"
+            "travel mode into exactly ONE of these labels:\n"
+            "\n"
+            "  - walk\n"
+            "  - bike\n"
+            "  - car\n"
+            "  - public_transport\n"
+            "  - unknown\n"
+            "\n"
+            "RULES:\n"
+            "- The snippet is in chronological order (top = earliest, bottom = latest).\n"
+            "- If multiple travel modes are mentioned, you MUST prioritise the most\n"
+            "  recent USER line that clearly talks about how they want to travel.\n"
+            "- Words like 'on foot', 'walking', 'by foot' → 'walk'.\n"
+            "- Words like 'by bike', 'bicycle', 'cycling', 'fiets' → 'bike'.\n"
+            "- Words like 'by car', 'with my car', 'drive' → 'car'.\n"
+            "- Words like 'public transport', 'bus', 'train', 'OV', 'NS', 'Arriva',\n"
+            "  'station', 'bus stop' → 'public_transport'.\n"
+            "- If the user only says vague speed words such as 'as fast as possible',\n"
+            "  'as quickly as possible', without specifying walk/bike/car/bus/train,\n"
+            "  this is NOT a clear mode → answer 'unknown'.\n"
+            "- If you cannot find a clear mode in any USER line, answer 'unknown'.\n"
+            "\n"
+            "IMPORTANT OUTPUT RULES:\n"
+            "- Answer with EXACTLY ONE word: 'walk', 'bike', 'car', 'public_transport',\n"
+            "  or 'unknown'. No extra text.\n"
+            "- If the user only uses vague speed words like 'as fast as possible', 'as quickly as possible', 'ASAP',\n"
+            " and does NOT explicitly say walk/bike/car/bus/train/public transport,you MUST output 'unknown'."
+        )
+
+        user_msg = f"CONVERSATION_SNIPPET:\n{snippet}"
+
+        text = self._chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            model="gpt-4o-mini",
+            temperature=0.0,
+            max_completion_tokens=4,
+        )
+
+        if not text:
+            return "unknown"
+
+        label = text.strip().split()[0].lower()
+
+        if label in {"walk", "bike", "car", "public_transport", "unknown"}:
+            return label
+
+        # Safety fallback
+        return "unknown"
+
+
+    # ---------------------------------------------------------------------
+    # ROUTE: EXTRACT ROUTE
+    # ---------------------------------------------------------------------
+    def extract_route_entities(
+            self,
+            user_text: str,
+            prev_source: Optional[str] = None,
+            prev_destination: Optional[str] = None,
+    ) -> Dict[str, Optional[str]]:
+        """
+        Try to extract a SOURCE and/or DESTINATION location from a short
+        conversation history snippet.
+
+        The snippet may contain several user and assistant messages, prefixed
+        with "User:" and "Assistant:". You must focus on the most recent user
+        question about travelling, but you may use earlier lines as context.
+
+        You may also receive:
+          - prev_source: origin of the last completed route in this conversation.
+          - prev_destination: destination of the last completed route.
+
+        Returns:
+            { "source": "<raw span from user text> or None",
+              "destination": "<raw span from user text> or None }
+        """
+
+        snippet = _clean(user_text)
+        if not snippet or not self.client:
+            return {"source": None, "destination": None}
+
+        system_msg = (
+            "You are CampusCompass, a campus navigation assistant at Radboud University Nijmegen.\n"
+            "You receive a SHORT CONVERSATION SNIPPET with multiple lines, each starting with\n"
+            "'User:' or 'Assistant:'. Your job is to decide whether this snippet contains:\n"
+            "- a starting point (SOURCE), and/or\n"
+            "- a destination (DESTINATION).\n"
+            "\n"
+            "IMPORTANT:\n"
+            "- The snippet is in chronological order (top = earliest, bottom = latest).\n"
+            "- If multiple locations are mentioned, you MUST prioritise the MOST RECENT\n"
+            "  user question about travelling.\n"
+            "- Later user mentions override earlier ones. For example, if an earlier line\n"
+            "  says 'User: I am at Huygens' and a later line says 'User: I am now at\n"
+            "  Heyendaal station', then SOURCE must be 'Heyendaal station'.\n"
+            "\n"
+            "LOCATIONS YOU MAY EXTRACT:\n"
+            "- campus buildings (e.g. 'EOS', 'Huygens', 'Maria Montessori', 'Berchmanianum'),\n"
+            "- room or building codes (e.g. 'MM00.010', 'HG00.616'),\n"
+            "- nearby stations or stops (e.g. 'Heyendaal station', 'Nijmegen Central Station').\n"
+            "- You SHOULD prefer phrases that appear in USER lines.\n"
+            "- EXCEPTION: if the MOST RECENT user message uses a referring expression like\n"
+            "  'there', 'that place', 'that building', or similar, and it clearly points to\n"
+            "  a location name that appears only in the immediately preceding ASSISTANT line,\n"
+            "  you MAY copy that assistant phrase for SOURCE or DESTINATION.\n"
+            "\n"
+            "HOW TO DECIDE SOURCE VS DESTINATION:\n"
+            "- Look for patterns like: 'from X to Y', 'to Y from X', 'I'm at X and need\n"
+            "  to go to Y', 'How can I get there?'.\n"
+            "- Use earlier assistant messages to resolve pronouns like 'there' or 'that\n"
+            "  building', but the final SOURCE/DESTINATION text should normally come from\n"
+            "  user wording when possible, or from the clearly referenced assistant phrase\n"
+            "  in the exception described above.\n"
+            "- If the user only clearly names a place they want to go to (e.g. 'How do I\n"
+            "  get to EOS?'), then DESTINATION = that place, SOURCE = null.\n"
+            "- If they clearly say where they are (e.g. 'I'm at Heyendaal station and I need\n"
+            "  to go to Berchmanianum.'), then SOURCE = where they are, DESTINATION = target.\n"
+            "\n"
+            "PREVIOUS ROUTE CONTEXT (if provided):\n"
+            "- You may also receive PREV_SOURCE and PREV_DESTINATION values.\n"
+            "- They represent the origin and destination of the LAST COMPLETED ROUTE.\n"
+            "- If the MOST RECENT user message is something like:\n"
+            "    'How do I get back?', 'I want to go back', 'And back?',\n"
+            "  and it does NOT explicitly name new buildings or stations, then you MUST:\n"
+            "    * set SOURCE      = PREV_DESTINATION\n"
+            "    * set DESTINATION = PREV_SOURCE\n"
+            "- If the latest user message clearly names new buildings (for example\n"
+            "  'Now from EOS to MM'), you MUST ignore PREV_SOURCE/PREV_DESTINATION and\n"
+            "  use the new locations instead.\n"
+            "\n"
+            "OUTPUT FORMAT (VERY STRICT):\n"
+            "- Respond with ONE line of valid JSON, no extra text.\n"
+            "- The JSON MUST have exactly these two keys: 'source' and 'destination'.\n"
+            "- Each value is either a string (exact phrase taken from the USER wording or,\n"
+            "  in the exception case, the clearly referenced ASSISTANT phrase) or null.\n"
+            "\n"
+            "EXAMPLE:\n"
+            "User: Oh no! I lost my student card. I'm currently at Heyendaal station.\n"
+            "Assistant: You can request a new student card at the Central Student Desk in the Berchmanianum.\n"
+            "User: How can I get there as quickly as possible?\n"
+            "-> {\"source\": \"Heyendaal station\", \"destination\": \"Berchmanianum\"}\n"
+        )
+
+        prev_src_str = prev_source if prev_source else "null"
+        prev_dst_str = prev_destination if prev_destination else "null"
+
+        user_msg = (
+            "CONVERSATION_SNIPPET:\n"
+            f"{snippet}\n\n"
+            "PREVIOUS_ROUTE_CONTEXT:\n"
+            f"PREV_SOURCE: {prev_src_str}\n"
+            f"PREV_DESTINATION: {prev_dst_str}\n"
+        )
+
+        raw = self._chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            model="gpt-4o-mini",
+            temperature=0.0,
+            max_completion_tokens=80,
+        )
+
+        if not raw:
+            return {"source": None, "destination": None}
+
+        raw = raw.strip()
+        try:
+            data = json.loads(raw)
+            source = data.get("source")
+            dest = data.get("destination")
+            if isinstance(source, str):
+                source = source.strip() or None
+            else:
+                source = None
+            if isinstance(dest, str):
+                dest = dest.strip() or None
+            else:
+                dest = None
+            return {"source": source, "destination": dest}
+        except Exception as e:
+            logger.error(f"[LLMController.extract_route_entities] JSON parse failed: {e} raw={raw!r}")
+            return {"source": None, "destination": None}
 
 
     # ---------------------------------------------------------------------
@@ -443,8 +744,8 @@ class LLMController:
             "  • steps: an ordered list of text instructions from Google Maps. Each step string may end\n"
             "    with a distance in parentheses such as \"(70 m)\" or \"(0.3 km)\".\n"
             "  • step_landmarks: a list aligned with steps; step_landmarks[i] is a LIST of\n"
-            "    0–2 building names that SHOULD be mentioned for step i.\n"
-            "  • travel_mode: either walking, bicycling or driving. The mode of transport. Use this when talking about duration (on foot, by bike, by car)"
+            "    0–2 building names that SHOULD be mentioned for that step.\n"
+            "  • travel_mode: either walking, bicycling or driving. The mode of transport. Use this when talking about duration (on foot, by bike, by car)\n"
             "\n"
             "YOUR TASK\n"
             "Turn ROUTE_DATA into a clear, easy-to-follow explanation for a student on campus.\n"
@@ -461,21 +762,46 @@ class LLMController:
             "       - Each numbered step MUST be on its own line.\n"
             "       - You MUST NOT put more than one numbered step on the same line.\n"
             "       - Keep each line short and readable.\n"
+            "       - You SHOULD normally use about 3–5 numbered instructions total.\n"
+            "         If needed to avoid skipping a street or important turn, you MAY\n"
+            "         use up to 7 numbered instructions.\n"
             "  3. Keep the whole answer concise (roughly up to 100 words total).\n"
             "\n"
             "ROUTE FIDELITY (VERY IMPORTANT)\n"
             "  - Treat ROUTE_DATA.steps as ground truth for the path.\n"
-            "  - Preserve ALL steps in the same order. You may combine two small consecutive turns\n"
-            "    into one line, but you MUST NOT skip, reorder or invent steps.\n"
+            "  - You MUST mention every distinct street name that appears in ROUTE_DATA.steps\n"
+            "    at least once somewhere in your numbered instructions. You MUST NOT merge\n"
+            "    steps in such a way that a street name disappears completely.\n"
+            "  - Keep the overall order of the route, but you MUST MERGE several consecutive\n"
+            "    steps into a single numbered instruction when they keep the user on the\n"
+            "    same street or are only small adjustments (e.g. \"continue\", \"slight right\",\n"
+            "    or \"stay on\" the same road).\n"
+            "  - You MUST NOT produce more than 2 numbered instructions for the same street\n"
+            "    name in the entire answer. If ROUTE_DATA.steps contains 3 or more steps on\n"
+            "    the same street, you MUST combine them into 1 or 2 clearer instructions.\n"
+            "  - In particular, avoid giving the user 3–5 separate steps in a row that all\n"
+            "    say \"stay on\" or \"continue\" on the same street name; combine them into\n"
+            "    one or two clearer instructions instead.\n"
+            "  - Whenever two or more consecutive steps in ROUTE_DATA use the same street\n"
+            "    name, you MUST make it explicit in your text that they refer to the same\n"
+            "    street, for example by saying \"follow this same street\" or \"keep following\n"
+            "    this street\".\n"
+            "  - Do NOT change the overall path: do not invent new steps and do not skip\n"
+            "    important turns.\n"
             "  - Only use street names that actually appear in ROUTE_DATA.steps.\n"
             "  - Do NOT invent extra streets or squares.\n"
             "\n"
             "DISTANCE RULES (PER STEP)\n"
             "  - Many step strings end with a distance in parentheses, such as \"(70 m)\" or \"(0.3 km)\".\n"
-            "  - Whenever a step contains such a distance, you MUST express it explicitly in your text, e.g.:\n"
-            "      • \"Walk about 70 m along Heyendaalseweg …\"\n"
-            "      • \"Follow Willem Nuyenslaan for about 0.3 km, then …\"\n"
-            "  - Do NOT drop these distances; they are important for orientation.\n"
+            "  - For each numbered instruction, mention at most ONE approximate distance and\n"
+            "    keep it simple and rounded (e.g. \"about 50 m\", \"about 200 m\", \"about 500 m\").\n"
+            "  - If a distance is given in kilometres but is less than 1.0 km (e.g. \"0.2 km\"),\n"
+            "    convert it to metres and round it (e.g. \"about 200 m\").\n"
+            "  - Avoid very precise numbers like \"68 m\" or \"32 m\"; use rounded values instead,\n"
+            "    or phrases such as \"a few hundred metres\".\n"
+            "  - When you merge several consecutive steps on the same street, you MUST refer\n"
+            "    to their combined distance in an approximate way (e.g. \"for about 300 m\" or\n"
+            "    \"for a few hundred metres\") instead of listing every small distance separately.\n"
             "\n"
             "LANDMARK RULES (PER STEP)\n"
             "  - For each index i, step_landmarks[i] is ALREADY a final list of building names to mention\n"
@@ -506,8 +832,44 @@ class LLMController:
             "  - Answer in English.\n"
             "  - Be purely practical: describe what the user should do, how far they walk for each step,\n"
             "    and which streets/buildings they pass.\n"
+            "  - If several consecutive instructions keep the user on the same street, avoid repeating\n"
+            "    the full street name each time; you MUST explicitly signal that it is the same street,\n"
+            "    for example with phrases like \"this street\" or \"the same road\".\n"
             "  - Do NOT add emotional or touristic commentary.\n"
             "  - Do NOT mention JSON, APIs or internal tools.\n"
+            "\n"
+            "EXAMPLE 1 (GEERT GROOTEPLEIN ZUID)\n"
+            "  - Suppose ROUTE_DATA.steps for a part of the route look like this:\n"
+            "      • \"Turn left onto Geert Grooteplein Zuid (68 m)\"\n"
+            "      • \"Continue straight to stay on Geert Grooteplein Zuid (0.2 km)\"\n"
+            "      • \"Slight right to stay on Geert Grooteplein Zuid (32 m)\"\n"
+            "      • \"Turn right to stay on Geert Grooteplein Zuid (0.1 km)\"\n"
+            "      • \"Turn right toward Geert Grooteplein Noord (53 m)\"\n"
+            "      • \"Turn left onto Geert Grooteplein NoordDestination will be on the right (5 m)\"\n"
+            "    A GOOD transformation of this part is:\n"
+            "      \"Turn left onto Geert Grooteplein Zuid and follow this same street past Forum for\n"
+            "       a few hundred metres.\"\n"
+            "      \"Then turn right toward Geert Grooteplein Noord and walk the last few metres;\n"
+            "       the destination will be on your right.\"\n"
+            "    This way all Geert Grooteplein steps are covered in 1–2 instructions and\n"
+            "    Geert Grooteplein Zuid and Geert Grooteplein Noord are both mentioned.\n"
+            "\n"
+            "EXAMPLE 2 (MARIA MONTESSORI → CAFÉ DE AESCULAAF)\n"
+            "  - Suppose ROUTE_DATA.steps contain:\n"
+            "      • Thomas van Aquinostraat → Max Weberpad → Spinozapad → Pieter Rabuspad\n"
+            "      • René Descartesdreef → Van Beverwijcklaan → Geert Grooteplein Zuid\n"
+            "      • Geert Grooteplein Noord\n"
+            "    A GOOD transformation of this entire route is:\n"
+            "      1. \"Head east on Thomas van Aquinostraat for about 100 m, then turn left onto\n"
+            "         Max Weberpad and left onto Spinozapad, continuing onto Pieter Rabuspad for\n"
+            "         a few hundred metres, passing Collegezalencomplex (CC) and Paviljoen.\"\n"
+            "      2. \"Turn right onto René Descartesdreef and then left onto Van Beverwijcklaan;\n"
+            "         follow this same street for about 300 m, passing Villa Oud Heyendael and Forum.\"\n"
+            "      3. \"Continue onto Geert Grooteplein Zuid for about 200 m, then turn right toward\n"
+            "         Geert Grooteplein Noord and walk the last few metres; Café de Aesculaaf will\n"
+            "         be on your right.\"\n"
+            "    Notice that every distinct street name from ROUTE_DATA.steps appears at least once,\n"
+            "    but tiny steps are merged into clearer combined instructions.\n"
         )
 
         payload = {
