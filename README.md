@@ -1,3 +1,19 @@
+In a new terminal: 
+
+*Only for initial setup*
+cd [COPY CAMPUSCOMPASS FOLDER AS PATH AND PASTE HERE]
+In root directory create a .env file with RASA_LICENSE='[LICENSE KEY HERE]'
+.venv\Scripts\activate
+pip install uv
+uv pip install -r requirements.txt
+uv venv --python 3.11
+.\run-and-train-dev.ps1
+
+*After initial setup*
+cd [COPY CAMPUSCOMPASS FOLDER AS PATH AND PASTE HERE]
+.\run-and-train-dev.ps1 or .\run-dev.ps1
+
+
 # codespaces-quickstart
 Get started with Rasa in the browser using GitHub Codespaces.
 

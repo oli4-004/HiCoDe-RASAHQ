@@ -420,3 +420,34 @@ class ActionClearAbbreviationContext(Action):
         events.append(SlotSet("abbreviation_raw", None))
 
         return events
+
+class ActionCannotHandle(Action):
+    """
+    Stuurt een fallback met de link naar de campusplattegrond.
+    """
+
+    def name(self) -> Text:
+        return "action_cannot_handle"
+
+    def run(
+        self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+
+        campus_map_url = "https://www.ru.nl/sites/default/files/2025-05/campusplattegrond-2025.pdf"
+
+        dispatcher.utter_message(
+            text="I'm sorry, I cannot help you with this issue. If you are in a hurry, please refer to Google Maps or the campus map."
+        )
+
+        dispatcher.utter_message(
+            text="Campus Map",
+            buttons=[
+                {
+                    "title": "Open Campus Map",
+                    "payload": f"/{campus_map_url}",
+                    "url": campus_map_url,
+                }
+            ],
+        )
+
+        return []
