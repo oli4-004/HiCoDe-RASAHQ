@@ -1,19 +1,3 @@
-In a new terminal: 
-
-*Only for initial setup*
-cd [COPY CAMPUSCOMPASS FOLDER AS PATH AND PASTE HERE]
-In root directory create a .env file with RASA_LICENSE='[LICENSE KEY HERE]'
-.venv\Scripts\activate
-pip install uv
-uv pip install -r requirements.txt
-uv venv --python 3.11
-.\run-and-train-dev.ps1
-
-*After initial setup*
-cd [COPY CAMPUSCOMPASS FOLDER AS PATH AND PASTE HERE]
-.\run-and-train-dev.ps1 or .\run-dev.ps1
-
-
 # codespaces-quickstart
 Get started with Rasa in the browser using GitHub Codespaces.
 
@@ -24,11 +8,13 @@ Get started with Rasa in the browser using GitHub Codespaces.
    - Click on "Create codespace on main".
 
 2. **Set Up Environment:**
-   - In the codespace, open the `.env` file from this repo and add your license key to that file.
+   - In the codespace, open (or create if not existing) the `.env` file from this repo and add the RASA, OpenAI and Google maps API keys. Use a new line for each API key
      ```
-     RASA_LICENSE='your_rasa_license_key_here'
+     RASA_LICENSE='your_key_here'
+     OPENAI_API_KEY='your_key_here'
+     GOOGLE_MAPS_API_KEY='your_key_here'
      ```
-   - Set this environment variables by running 
+   - Set this environment variables by running in the terminal
      ```
      source .env
      ```
@@ -36,31 +22,32 @@ Get started with Rasa in the browser using GitHub Codespaces.
      ```
      source .venv/bin/activate
      ```
+     Navigate to the Campus Compass directory by running
+     ```
+     cd [COPY CAMPUSCOMPASS FOLDER AS PATH AND PASTE HERE]
+     ```
+     .venv\Scripts\activate
+     ```
+     pip install uv
+     ```
+     Python 3.11 is required so to install it in the virtual environment run
+     ```    
+     uv venv --python 3.11
+     ```
+     Lastly, to install the dependencies run
+     ```
+     uv pip install -r requirements.txt
 
-3. **Initialize a New Project:**
+4. **Train and run the Model:**
    - In the terminal, run:
      ```
-     rasa init --template tutorial
+     .\run-and-train-dev.ps1
      ```
-     and follow the instructions.
-
-4. **Train the Model:**
-   - In the terminal, run:
-     ```
-     rasa train
-     ```
+     The bot should now open in the default browser
 
 5. **Talk to your Bot:**
-   - In the terminal, run
+   - If training is not needed you can run in the terminal
      ```
-     rasa inspect
+     .\run-dev.ps1
      ```
-     GitHub will show a notification, click on the green button to view the inspector where you can chat with your assistant.
-
-6. **Run Custom Actions:**
-  In Rasa 3.10 and later, custom actions are automatically run as part of your running assistant. To double-check that this is set up correctly, ensure that your `endpoints.yml` file contains the following configuration:
-   ```
-   action_endpoint:
-      actions_module: "actions" # path to your actions package
-    ```
-   Then re-run your assistant via `rasa inspect` every time you make changes to your custom actions.
+     The bot should now open in the default browser
