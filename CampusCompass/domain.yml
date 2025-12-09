@@ -142,7 +142,7 @@ responses:
     - text: "I did not quite understand that. Can you word your question in a different way?"
 
   utter_cannot_handle:
-    - text: "I am sorry, it looks like I cannot help you with this issue. If you are in a hurry, please refer to Google Maps or the Radboud University website."
+    - text: "I am sorry, it looks like I cannot help you with this issue."
 
   # ---------------------------------------------------------------------------
   # RASA PATTERN RESPONSE OVERRIDES
@@ -247,3 +247,4 @@ actions:
   - action_smalltalk_llm
   - action_get_route_description
   - action_clear_route_context
+  - action_cannot_handle

@@ -815,7 +815,7 @@ flows:
               - action: utter_fallback_rephrase
                 next: END
           - else:
-              - action: utter_cannot_handle
+              - action: action_cannot_handle
                 next: END
 
   # ---------------------------------------------------------------------------
