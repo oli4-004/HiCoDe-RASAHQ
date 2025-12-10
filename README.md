@@ -18,17 +18,9 @@ Get started with Rasa in the browser using GitHub Codespaces.
      ```
      source .env
      ```
-   - Activate your python environment by running
-     ```
-     source .venv/bin/activate
-     ```
      Navigate to the Campus Compass directory by running
      ```
      cd [COPY CAMPUSCOMPASS FOLDER AS PATH AND PASTE HERE]
-     ```
-   - Activate your python environment by running
-     ```
-     .venv\Scripts\activate
      ```
      Install uv
      ```
@@ -37,6 +29,10 @@ Get started with Rasa in the browser using GitHub Codespaces.
      Python 3.11 is required so to install it in the virtual environment run
      ```    
      uv venv --python 3.11
+     ```
+     Activate your python environment by running
+     ```
+     .venv\Scripts\activate
      ```
      Lastly, to install the dependencies run
      ```
