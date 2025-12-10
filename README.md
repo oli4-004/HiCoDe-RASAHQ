@@ -26,7 +26,11 @@ Get started with Rasa in the browser using GitHub Codespaces.
      ```
      cd [COPY CAMPUSCOMPASS FOLDER AS PATH AND PASTE HERE]
      ```
+   - Activate your python environment by running
+     ```
      .venv\Scripts\activate
+     ```
+     Install uv
      ```
      pip install uv
      ```
