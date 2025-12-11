@@ -1,5 +1,6 @@
 # codespaces-quickstart
 Get started with Rasa in the browser using GitHub Codespaces.
+Please note that our entire project resides in the CampusCompass folder. Please change directory if you are in the parent folder HiCoDe-RASAHQ.
 
 ### Steps
 
