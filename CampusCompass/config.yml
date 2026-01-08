@@ -13,6 +13,7 @@ policies:
   - name: FlowPolicy
 
   - name: EnterpriseSearchPolicy
+    prompt_template: override/enterprise-search-policy-template.jinja2
     llm:
       model_group: openai_search_generation_model
     embeddings:

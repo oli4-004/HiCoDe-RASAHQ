@@ -21,6 +21,8 @@ flows:
       Do not give explanations of capabilities here; keep it light and
       focused on welcoming the user.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: utter_greet
         next: END
 
@@ -42,6 +44,8 @@ flows:
       This flow should be chosen instead of other flows when the central
       intent of the message is to end the conversation.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: utter_goodbye
         next: END
 
@@ -63,6 +67,8 @@ flows:
       Do not re-explain previous answers or start new topics here; just
       keep it as a polite acknowledgement.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: utter_reply_thanks
         next: END
 
@@ -91,6 +97,8 @@ flows:
       when there are clear crisis or self-harm signals. Safety has priority over
       normal informational tasks.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: utter_severe_mental_health_support
         next: END
 
@@ -114,6 +122,8 @@ flows:
       If at any point the user does mention self-harm, suicidal thoughts, or crisis,
       the severe mental health flow should be used instead.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: utter_light_mental_health_support
         next: END
 
@@ -150,8 +160,19 @@ flows:
       - Do NOT drift into general smalltalk here; keep the answer focused
         on role and scope.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   abbreviation_flow:
     description: |
@@ -262,12 +283,22 @@ flows:
       After answering, STOP and WAIT. Do NOT ask a follow-up question
       unless the user comes back with thanks or a new, separate question.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_llm_prefill_abbreviation
       - collect: abbreviation_raw
         ask_before_filling: false
       - action: action_trigger_search
-      - action: action_clear_abbreviation_context
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_clear_abbreviation_context
+                next: END
 
   food_and_drink_flow:
     description: |
@@ -309,8 +340,19 @@ flows:
       - avoid guessing or recommending off-campus places,
       - suggest checking the Radboud website or campus map if needed.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   alcohol_and_bar_flow:
     description: |
@@ -351,8 +393,19 @@ flows:
       - suggest checking the Radboud website or the relevant study
         association for more details.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   study_association_flow:
     description: |
@@ -389,8 +442,19 @@ flows:
       - suggest checking the programme's website or the association's
         own channels.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   umbrella_association_flow:
     description: |
@@ -420,9 +484,21 @@ flows:
       If the umbrella or platform is not documented:
       - say that you cannot find it in the campus docs,
       - avoid guessing what the acronym might stand for.
+
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   prayer_room_flow:
     description: |
@@ -460,8 +536,19 @@ flows:
         for that context,
       - avoid describing non-existent facilities.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   event_and_activity_flow:
     description: |
@@ -500,8 +587,19 @@ flows:
       - say that the venue name does not appear in the docs,
       - suggest checking the event invitation or the campus map.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   opening_hours_flow:
     description: |
@@ -546,8 +644,19 @@ flows:
       the more specific thematic flow (e.g. food_and_drink_flow,
       study_association_flow) instead of this one.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   study_spots_flow:
     description: |
@@ -591,10 +700,20 @@ flows:
       - say that you cannot find specific study spots for that context,
       - avoid inventing new spaces,
       - suggest checking the Radboud website or the campus map.
-
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   other_facilities_flow:
     description: |
@@ -677,8 +796,19 @@ flows:
       - Do NOT mention 'documents' or 'knowledge base' to the user.
 
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   # ---------------------------------------------------------------------------
   # GENERIC CATCH-ALL SEARCH FLOW
@@ -731,11 +861,22 @@ flows:
       - It should suggest checking the Radboud University website, the
         official campus map, or a relevant service desk for more details.
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_trigger_search
-        next: END
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
 
   # ---------------------------------------------------------------------------
-  # OFF-TOPIC
+  # FALLBACK / REPAIR (includes docs NEED_INFO + docs NOT_IN_DOCS)
   # ---------------------------------------------------------------------------
 
   smalltalk_flow:
@@ -780,6 +921,46 @@ flows:
       - action: utter_free_chitchat_response
         next: END
 
+  docs_need_info_flow:
+    description: |
+      Handles the case where the docs-based Q&A could potentially answer,
+      but the user's question is missing key details or is ambiguous.
+
+      Trigger condition:
+      - The slot docs_status is "NEED_INFO" and docs_need_info_question is set.
+
+      Behaviour:
+      - Ask exactly the stored clarification question (from docs_need_info_question).
+      - Do not add extra questions.
+      - Clear docs_status/docs_need_info_question afterwards, then stop.
+    steps:
+      - action: utter_docs_need_info_question
+      - set_slots:
+          - docs_status: null
+          - docs_need_info_question: null
+      - action: action_listen
+        next: END
+
+  docs_not_in_docs_flow:
+    description: |
+      Handles the case where the docs-based Q&A cannot find the answer
+      in the campus documents.
+
+      Trigger condition:
+      - The slot docs_status is "NOT_IN_DOCS".
+
+      Behaviour:
+      - If the user is in public transport mode, give a PT-specific fallback hint.
+      - Otherwise, use the generic cannot-handle fallback (campus map).
+      - Clear docs_status/docs_need_info_question and any route/abbreviation context, then stop.
+    steps:
+      - action: action_clear_abbreviation_context
+      - action: action_clear_route_context
+      - set_slots:
+          - docs_status: null
+          - docs_need_info_question: null
+      - action: action_cannot_handle
+        next: END
 
   fallback_flow:
     description: |
@@ -839,15 +1020,12 @@ flows:
            "I am sorry, it looks like I cannot help you with this issue.
            If you are in a hurry, please refer to Google Maps or the
            Radboud University website."
-         - This corresponds to utter_cannot_handle as the final fallback
-           utterance, which is also used by pattern_cannot_handle.
 
       The slot fallback_attempts represents how many clarification
-      attempts have already been made in the current conversation. The
-      LLM should update this slot based on the dialogue context:
-      - 0 or unset  -> first unclear time
-      - 1           -> second unclear time
-      - 2 or more   -> final fallback
+      attempts have already been made in the current conversation. 
+      The slot fallback_attempts is a deterministic counter and 
+      is ONLY updated by action_increment_fallback_attempts. 
+      The assistant/LLM must never set or correct this slot.
 
       This flow is the last resort when no other flow fits and the bot
       still cannot understand or answer the user in a campus-relevant
@@ -855,10 +1033,11 @@ flows:
       request, their behaviour should be aligned with this same
       three-step clarification and final fallback pattern.
     steps:
-      - collect: fallback_attempts
-        ask_before_filling: false
+      - action: action_clear_abbreviation_context
+      - action: action_clear_route_context
+      - action: action_increment_fallback_attempts
         next:
-          - if: slots.fallback_attempts is not set or slots.fallback_attempts < 2
+          - if: slots.fallback_attempts < 3
             then:
               - action: utter_fallback_rephrase
                 next: END
@@ -869,7 +1048,6 @@ flows:
   # ---------------------------------------------------------------------------
   # TRANSPORT FLOWS
   # ---------------------------------------------------------------------------
-
   route_description_flow:
     description: |
       Handles on-campus directions between two campus buildings or places
@@ -905,17 +1083,25 @@ flows:
         the assistant does not stay stuck in a previous route context.
 
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_llm_prefill_route_slots
       - action: action_llm_prefill_travel_mode
-      - collect: source_building_raw
-        ask_before_filling: false
-      - collect: target_building_raw
-        ask_before_filling: false
-      - collect: travel_mode_hint
-        ask_before_filling: false
-      - action: action_get_route_description
-      - action: action_clear_route_context
-        next: END
+        next:
+          - if: slots.travel_mode_hint == "public_transport"
+            then:
+              - link: public_transport_flow
+          - if: slots.travel_mode_hint == "unknown"
+            then:
+              - link: travel_mode_clarification_flow
+          - else:
+              - collect: source_building_raw
+                ask_before_filling: false
+              - collect: target_building_raw
+                ask_before_filling: false
+              - action: action_get_route_description
+              - action: action_clear_route_context
+                next: END
 
 
   travel_mode_clarification_flow:
@@ -955,6 +1141,8 @@ flows:
         - public_transport_flow when travel_mode_hint = "public_transport".
 
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_llm_prefill_route_slots
       - action: action_llm_prefill_travel_mode
       - collect: source_building_raw
@@ -963,7 +1151,13 @@ flows:
         ask_before_filling: false
       - collect: travel_mode_hint
         ask_before_filling: true
-        next: END
+      - action: action_llm_prefill_travel_mode
+        next:
+            - if: slots.travel_mode_hint == "public_transport"
+              then:
+                - link: public_transport_flow
+            - else:
+                - link: route_description_flow
 
   public_transport_flow:
     description: |
@@ -1022,10 +1216,39 @@ flows:
           for real-time route advice.
 
     steps:
+      - set_slots:
+          - fallback_attempts: 0
       - action: action_llm_prefill_route_slots
-      - action: action_trigger_search
-      - action: action_clear_route_context
-        next: END
+      - action: action_llm_prefill_travel_mode
+        next:
+          - if: slots.travel_mode_hint == "walk"
+            then:
+              - link: route_description_flow
+          - if: slots.travel_mode_hint == "bike"
+            then:
+              - link: route_description_flow
+          - if: slots.travel_mode_hint == "car"
+            then:
+              - link: route_description_flow
+          - if: slots.travel_mode_hint == "unknown"
+            then:
+              - link: travel_mode_clarification_flow
+          - else:
+              - collect: source_building_raw
+                ask_before_filling: false
+              - collect: target_building_raw
+                ask_before_filling: false
+              - action: action_trigger_search
+                next:
+                  - if: slots.docs_status == "NEED_INFO"
+                    then:
+                      - link: docs_need_info_flow
+                  - if: slots.docs_status == "NOT_IN_DOCS"
+                    then:
+                      - link: docs_not_in_docs_flow
+                  - else:
+                      - action: action_clear_route_context
+                        next: END
 
   # ---------------------------------------------------------------------------
   # RASA DEFAULT PATTERN OVERRIDES (MINIMAL / LOW-NOISE)
@@ -1038,8 +1261,7 @@ flows:
       it shows one short clarification message and then stops.
       Normal flows can then handle the clarified question.
     steps:
-      - action: utter_clarification_options_rasa
-        next: END
+      - link: fallback_flow
 
   pattern_cannot_handle:
     description: |
@@ -1047,8 +1269,7 @@ flows:
       or find a reliable answer. This override sends one generic
       cannot-handle message and then stops.
     steps:
-      - action: utter_cannot_handle
-        next: END
+      - link: fallback_flow
 
   pattern_chitchat:
     description: |
@@ -1056,8 +1277,7 @@ flows:
       standalone smalltalk behaviour: it sends one short, friendly
       response and then ends without starting any flow.
     steps:
-      - action: utter_free_chitchat_response
-        next: END
+      - link: smalltalk_flow
 
   pattern_cancel_flow:
     description: |
@@ -1074,7 +1294,7 @@ flows:
       This override is completely silent and simply ends the current
       turn. It does not ask whether the user needs anything else.
     steps:
-      - noop: true
+      - action: action_listen
         next: END
 
   pattern_continue_interrupted:
@@ -1084,7 +1304,7 @@ flows:
       whether they want to continue. Instead, it simply cancels any
       interrupted flows and ends silently, so no extra messages appear.
     steps:
-      - action: action_cancel_interrupted_flows
+      - action: action_cancel_flow
         next: END
 
   pattern_correction:
@@ -1093,9 +1313,7 @@ flows:
       (for example, a wrong building code). This override updates the
       relevant slots and gives one short confirmation message.
     steps:
-      - action: action_correct_flow_slot
-      - action: utter_corrected_previous_input
-        next: END
+      - link: fallback_flow
 
   pattern_human_handoff:
     description: |
@@ -1121,8 +1339,7 @@ flows:
       not see or hear them. This override just calls a repeat action
       and then ends.
     steps:
-      - action: action_repeat_bot_messages
-        next: END
+      - link: fallback_flow
 
   pattern_restart:
     description: |

@@ -2,12 +2,17 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Text
 
 import logging
+import json
 
 from rasa_sdk import Action, Tracker
+from rasa_sdk.events import SlotSet, EventType, FollowupAction
 from rasa_sdk.executor import CollectingDispatcher
-from rasa_sdk.events import SlotSet, EventType
 from CampusCompass.app.api.llmcontroller import LLMController
 from CampusCompass.app.api.mapscontroller import MapsController
+from rasa.core.actions.action_trigger_search import ActionTriggerSearch
+from rasa.shared.core.events import BotUttered, Event
+from rasa.shared.core.domain import Domain
+from rasa.shared.core.trackers import DialogueStateTracker
 
 logger = logging.getLogger("campuscompass.actions")
 
@@ -45,22 +50,39 @@ def build_history_snippet(tracker: Tracker, max_messages: int = 10) -> str:
     messages, in chronological order, with explicit prefixes.
 
     Example:
-
         User: Oh no! I lost my student card...
         Assistant: You can request a new student card at the Central Student Desk in the Berchmanianum.
         User: How can I get there as quickly as possible?
     """
+    # If we encounter a corrected bot message, we skip earlier bot messages
+    # until we hit the previous user message (same turn masking).
     lines: List[str] = []
+    skip_bots_until_user = False
 
-    # Walk backwards through events and collect the last N text messages
     for e in reversed(tracker.events):
         ev_type = e.get("event")
         if ev_type not in ("user", "bot"):
             continue
 
+        # If we already saw a corrected bot message, ignore older bot messages
+        # from the same turn until we reach a user message.
+        if skip_bots_until_user and ev_type == "bot":
+            continue
+
         text = (e.get("text") or "").strip()
         if not text:
             continue
+
+        # Detect "this bot message overrides earlier bot messages in this turn"
+        if ev_type == "bot":
+            md = e.get("metadata") or {}
+            if isinstance(md, dict) and md.get("fact_check_override") is True:
+                # From now on (while walking back), ignore earlier bots until we hit a user event.
+                skip_bots_until_user = True
+
+        if ev_type == "user":
+            # Once we hit the previous user message, stop skipping bots.
+            skip_bots_until_user = False
 
         prefix = "User" if ev_type == "user" else "Assistant"
         lines.append(f"{prefix}: {text}")
@@ -71,7 +93,6 @@ def build_history_snippet(tracker: Tracker, max_messages: int = 10) -> str:
     if not lines:
         return ""
 
-    # We built it backwards; reverse to chronological order
     return "\n".join(reversed(lines))
 
 
@@ -125,6 +146,14 @@ class ActionGetRouteDescription(Action):
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
 
+        mode_hint = (tracker.get_slot("travel_mode_hint") or "").strip().lower()
+        if mode_hint == "public_transport":
+            dispatcher.utter_message(
+                text="For bus/train routes I recommend a live planner (9292 or Google Maps). "
+                     "If you want a walking, cycling or driving route, tell me: walk / bike / car."
+            )
+            return []
+
         source_raw = (tracker.get_slot("source_building_raw") or "").strip()
         target_raw = (tracker.get_slot("target_building_raw") or "").strip()
 
@@ -160,7 +189,6 @@ class ActionGetRouteDescription(Action):
             )
 
             # 2) call MapsController to get structured route data
-            mode_hint = (tracker.get_slot("travel_mode_hint") or "").strip()
             travel_mode = llm.normalize_travel_mode(mode_hint)
             logger.info("[ROUTE] normalized_mode=%s", travel_mode)
             route_data = maps.get_walking_directions(
@@ -198,7 +226,6 @@ class ActionGetRouteDescription(Action):
 
         if map_url:
             dispatcher.utter_message(
-                text="Route map",
                 image=map_url,
             )
         return []
@@ -231,7 +258,6 @@ class ActionClearRouteContext(Action):
                 SlotSet("travel_mode_hint", "unknown"),
             ]
         )
-
         return events
 
 
@@ -321,9 +347,11 @@ class ActionLLMPrefillTravelMode(Action):
     ) -> List[EventType]:
         events: List[EventType] = []
 
+        VALID = {"walk", "bike", "car", "public_transport", "unknown"}
+
         current_hint = (tracker.get_slot("travel_mode_hint") or "").strip().lower()
-        # Respect an already set, meaningful hint
-        if current_hint and current_hint != "unknown":
+
+        if current_hint in VALID and current_hint != "unknown":
             return events
 
         history_snippet = build_history_snippet(tracker, max_messages=10)
@@ -421,6 +449,10 @@ class ActionClearAbbreviationContext(Action):
 
         return events
 
+
+# ---------------------------------------------------------------------------
+# FALLBACK
+# ---------------------------------------------------------------------------
 class ActionCannotHandle(Action):
     """
     Stuurt een fallback met de link naar de campusplattegrond.
@@ -443,11 +475,114 @@ class ActionCannotHandle(Action):
             text="Campus Map",
             buttons=[
                 {
-                    "title": "Open Campus Map",
-                    "payload": f"/{campus_map_url}",
+                    "title": "Click here",
                     "url": campus_map_url,
                 }
             ],
         )
 
         return []
+
+class ActionIncrementFallbackAttempts(Action):
+    """
+        Telt hoevaak de chatbot niet begrijpt wat de user bedoelt
+    """
+    def name(self) -> str:
+        return "action_increment_fallback_attempts"
+
+    async def run(self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: dict):
+        cur = tracker.get_slot("fallback_attempts")
+        try:
+            n = int(float(cur)) if cur is not None else 0
+        except Exception:
+            n = 0
+        return [SlotSet("fallback_attempts", n + 1)]
+
+class ActionTriggerSearchLLM(Action):
+    """
+    Replacement for enterprise-search style responses:
+    - Select relevant kb files via lookup_kb.json (LLMController._load_building_docs)
+    - LLM returns JSON with status: ANSWER / NEED_INFO / NOT_IN_DOCS
+    - For ANSWER: utter answer
+    - For NEED_INFO / NOT_IN_DOCS: set slots only; flows decide what to do
+    """
+
+    def name(self) -> Text:
+        # Keep this name if your Rasa setup calls "action_trigger_search"
+        return "action_trigger_search"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[str, Any],
+    ) -> List[EventType]:
+
+        user_text = (tracker.latest_message.get("text") or "").strip()
+        if not user_text:
+            dispatcher.utter_message(text="I didn’t catch your question—could you rephrase it?")
+            return [
+                SlotSet("docs_status", None),
+                SlotSet("docs_need_info_question", None),
+            ]
+
+        llm = get_llm_controller()
+
+        # Use recent conversation context to resolve pronouns like "there", "it", "that building", etc.
+        history_snippet = build_history_snippet(tracker, max_messages=10)
+
+        try:
+            raw_json = llm.answer_question_from_docs(
+                question_text=user_text,
+                history_snippet=history_snippet,
+            )
+        except Exception as e:
+            logger.error(f"[ActionTriggerSearchLLM] answer_question_from_docs failed: {e}")
+            dispatcher.utter_message(text="Sorry — I couldn’t answer that reliably right now.")
+            return [
+                SlotSet("docs_status", None),
+                SlotSet("docs_need_info_question", None),
+            ]
+
+        obj: Dict[str, Any] = {}
+        try:
+            obj = json.loads((raw_json or "").strip())
+        except Exception:
+            logger.error(f"[ActionTriggerSearchLLM] invalid JSON from LLM: {raw_json!r}")
+            obj = {"status": "NOT_IN_DOCS"}
+
+        status = (obj.get("status") or "").strip()
+
+        # Always clear question unless we explicitly set it
+        events: List[EventType] = [
+            SlotSet("docs_need_info_question", None),
+        ]
+
+        if status == "ANSWER":
+            answer = (obj.get("answer") or "").strip()
+            if not answer:
+                # Treat as not found
+                events.append(SlotSet("docs_status", "NOT_IN_DOCS"))
+                return events
+
+            dispatcher.utter_message(
+                text=answer,
+                metadata={"answered_by": "llm_docs_selector", "docs_status": "ANSWER"},
+            )
+            events.append(SlotSet("docs_status", None))  # clear so we don't get stuck
+            return events
+
+        if status == "NEED_INFO":
+            question = (obj.get("question") or "").strip()
+            if not question:
+                events.append(SlotSet("docs_status", "NOT_IN_DOCS"))
+                return events
+
+            # Do NOT utter here; flows will ask/collect.
+            events.append(SlotSet("docs_status", "NEED_INFO"))
+            events.append(SlotSet("docs_need_info_question", question))
+            return events
+
+        # default: NOT_IN_DOCS
+        events.append(SlotSet("docs_status", "NOT_IN_DOCS"))
+        return events

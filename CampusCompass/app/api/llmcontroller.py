@@ -24,6 +24,8 @@ class LLMController:
     def __init__(self):
         self.api_key = OPENAI_API_KEY
         self._building_docs_text: Optional[str] = None
+        self._kb_lookup_cache: Optional[List[Dict[str, Any]]] = None
+        self._kb_lookup_path = Path("docs") / "lookup_kb.json"
         logger.info("[LLMController] initialised, api_key_present=%s", bool(self.api_key))
 
         # ---------- OpenAI call logging to logs/openai_calls.log ----------
@@ -181,32 +183,213 @@ class LLMController:
     # ---------------------------------------------------------------------
     # LOADING DOCS AS KNOWLEDGE BASE
     # ---------------------------------------------------------------------
-    def _load_building_docs(self) -> str:
+    def _load_building_docs(self, query_text: Optional[str] = None) -> str:
         """
-        Load building documentation from the docs folder once, and cache it.
+        Load building documentation from the docs folder.
 
-        Assumes files like docs/kb_building_*.txt, but you can adjust the pattern
-        if your filenames differ.
+        - If query_text is provided: use docs/lookup_kb.json + a small LLM call to select
+          the 5 most relevant kb files, then concatenate ONLY those file contents.
+        - If anything fails: fall back to the old behavior (load all kb_*.txt once and cache it).
         """
-        if self._building_docs_text is not None:
+
+        # Fallback: all docs
+        def _fallback_load_all() -> str:
+            if self._building_docs_text is not None:
+                return self._building_docs_text
+
+            docs_dir = Path("docs")
+            parts: List[str] = []
+
+            if docs_dir.exists():
+                for path in docs_dir.glob("kb_*.txt"):
+                    try:
+                        parts.append(path.read_text(encoding="utf-8"))
+                    except Exception as e:
+                        logger.warning(f"[LLMController._load_building_docs] Failed to read {path}: {e}")
+            else:
+                logger.warning("[LLMController._load_building_docs] docs directory does not exist")
+
+            combined = "\n\n".join(parts)
+            self._building_docs_text = combined
             return self._building_docs_text
 
+        query_text = _clean(query_text or "")
+        if not query_text:
+            return _fallback_load_all()
+
         docs_dir = Path("docs")
-        parts: List[str] = []
-
-        if docs_dir.exists():
-            for path in docs_dir.glob("kb_*.txt"):
-                try:
-                    parts.append(path.read_text(encoding="utf-8"))
-                except Exception as e:
-                    logger.warning(f"[LLMController._load_building_docs] Failed to read {path}: {e}")
-        else:
+        if not docs_dir.exists():
             logger.warning("[LLMController._load_building_docs] docs directory does not exist")
+            return _fallback_load_all()
 
-        # Join and truncate so we do not send an enormous prompt
-        combined = "\n\n".join(parts)
-        self._building_docs_text = combined  # keep it reasonably small
-        return self._building_docs_text
+        # If OpenAI client is missing, no point in LLM-based selection → fallback
+        if not self.client:
+            return _fallback_load_all()
+
+        # 1) Load lookup_kb.json once
+        try:
+            if self._kb_lookup_cache is None:
+                if not self._kb_lookup_path.exists():
+                    logger.warning(f"[LLMController._load_building_docs] lookup not found: {self._kb_lookup_path}")
+                    return _fallback_load_all()
+
+                raw_lookup = self._kb_lookup_path.read_text(encoding="utf-8")
+                data = json.loads(raw_lookup)
+
+                # Accept either {"docs":[...]} or direct list [...]
+                if isinstance(data, dict) and isinstance(data.get("docs"), list):
+                    docs_list = data["docs"]
+                elif isinstance(data, list):
+                    docs_list = data
+                else:
+                    logger.warning("[LLMController._load_building_docs] lookup_kb.json has unexpected shape")
+                    return _fallback_load_all()
+
+                # Minimal validation
+                cleaned: List[Dict[str, Any]] = []
+                for item in docs_list:
+                    if not isinstance(item, dict):
+                        continue
+                    doc_id = item.get("doc_id")
+                    filename = item.get("filename")
+                    if not isinstance(doc_id, int) or not isinstance(filename, str) or not filename.strip():
+                        continue
+                    cleaned.append(item)
+
+                if not cleaned:
+                    logger.warning("[LLMController._load_building_docs] lookup has no valid entries")
+                    return _fallback_load_all()
+
+                self._kb_lookup_cache = cleaned
+
+            lookup_docs = self._kb_lookup_cache or []
+        except Exception as e:
+            logger.warning(f"[LLMController._load_building_docs] lookup load failed: {e}")
+            return _fallback_load_all()
+
+        # 2) Ask LLM for top 5 doc_ids (hallucination-resistant via validation)
+        # Keep payload small: sample entities/keywords
+        candidates = []
+        allowed_ids = []
+        for item in lookup_docs:
+            doc_id = item.get("doc_id")
+            filename = item.get("filename")
+            if not isinstance(doc_id, int) or not isinstance(filename, str):
+                continue
+
+            allowed_ids.append(doc_id)
+
+            entities = item.get("entities") or []
+            keywords = item.get("keywords") or []
+            summary = item.get("summary") or ""
+
+            if not isinstance(entities, list):
+                entities = []
+            if not isinstance(keywords, list):
+                keywords = []
+
+            candidates.append({
+                "doc_id": doc_id,
+                "filename": filename,
+                "summary": summary,
+                "keywords": keywords,
+                "entities_sample": entities,
+            })
+
+        if not candidates:
+            return _fallback_load_all()
+
+        system_msg = (
+            "You are a file selector for a campus chatbot.\n"
+            "Given a user query and a list of CANDIDATES (each with doc_id, filename, summary, keywords, entities_sample),\n"
+            "select the 5 most relevant doc_id values.\n"
+            "\n"
+            "STRICT RULES:\n"
+            "- You MUST ONLY output doc_id values that appear in the provided CANDIDATES.\n"
+            "- Output MUST be valid JSON on a single line, exactly in this shape:\n"
+            "  {\"doc_ids\": [1,2,3,4,5]}\n"
+            "- doc_ids must be unique, integers, max length 5.\n"
+            "- If fewer than 5 are relevant, return fewer.\n"
+            "- Do NOT include any extra keys or text.\n"
+        )
+
+        user_msg = (
+            f"USER_QUERY:\n{query_text}\n\n"
+            f"CANDIDATES:\n{json.dumps(candidates, ensure_ascii=False)}\n\n"
+            "Return JSON now."
+        )
+
+        selected_ids: List[int] = []
+        try:
+            raw = self._chat_completion(
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg},
+                ],
+                model="gpt-4o-mini",
+                temperature=0.0,
+                max_completion_tokens=80,
+            )
+
+            if raw:
+                parsed = json.loads(raw)
+                doc_ids = parsed.get("doc_ids", [])
+                logger.info(
+                    f"[LLMController._load_building_docs] LLM suggested doc_ids={doc_ids} for query={query_text!r}")
+                if isinstance(doc_ids, list):
+                    # Validate strictly: ints only, in allowed set, unique, max 5
+                    allowed_set = set(allowed_ids)
+                    out: List[int] = []
+                    for x in doc_ids:
+                        if isinstance(x, int) and x in allowed_set and x not in out:
+                            out.append(x)
+                        if len(out) >= 5:
+                            break
+                    selected_ids = out
+        except Exception as e:
+            logger.warning(f"[LLMController._load_building_docs] LLM selection failed: {e}")
+            selected_ids = []
+
+        # If LLM gives nothing usable -> fallback to old behavior (expensive but reliable)
+        if not selected_ids:
+            return _fallback_load_all()
+
+        # 3) Read and concatenate the selected files
+        id_to_filename: Dict[int, str] = {}
+        for item in lookup_docs:
+            if isinstance(item, dict) and isinstance(item.get("doc_id"), int) and isinstance(item.get("filename"), str):
+                id_to_filename[item["doc_id"]] = item["filename"]
+
+        parts: List[str] = []
+        for doc_id in selected_ids[:5]:
+            filename = id_to_filename.get(doc_id)
+            if not filename:
+                continue
+
+            path = (docs_dir / filename).resolve()
+            # safety: ensure resolved path is inside docs_dir
+            try:
+                if docs_dir.resolve() not in path.parents and path != docs_dir.resolve():
+                    logger.warning(f"[LLMController._load_building_docs] unsafe path skipped: {path}")
+                    continue
+            except Exception:
+                continue
+
+            if not path.exists():
+                logger.warning(f"[LLMController._load_building_docs] selected file missing: {path}")
+                continue
+
+            try:
+                parts.append(path.read_text(encoding="utf-8"))
+            except Exception as e:
+                logger.warning(f"[LLMController._load_building_docs] Failed to read selected {path}: {e}")
+
+        # If reading selected files fails -> fallback to old behavior
+        combined = "\n\n".join([p for p in parts if (p or "").strip()])
+        if not combined.strip():
+            return _fallback_load_all()
+
+        return combined
 
     # ---------------------------------------------------------------------
     # ABBREVIATIONS: EXTRACT SINGLE BUILDING / ROOM CODE
@@ -480,7 +663,7 @@ class LLMController:
             "\n"
             "IMPORTANT:\n"
             "- The snippet is in chronological order (top = earliest, bottom = latest).\n"
-            "- If multiple locations are mentioned, you MUST prioritise the MOST RECENT\n"
+            "- If multiple locations are mentioned, you MUST prioritise the MOST RECENT. THIS IS HIGHLY IMPORTANT\n"
             "  user question about travelling.\n"
             "- Later user mentions override earlier ones. For example, if an earlier line\n"
             "  says 'User: I am at Huygens' and a later line says 'User: I am now at\n"
@@ -599,7 +782,7 @@ class LLMController:
             return raw
 
         # Volledige campusdocs (gebouwen, venues, abbreviaties, etc.)
-        docs_text = self._load_building_docs()
+        docs_text = self._load_building_docs(raw)
 
         system_msg = (
             "You are CampusCompass, a campus assistant for Radboud University Nijmegen.\n"
@@ -901,3 +1084,126 @@ class LLMController:
         if not text:
             return fallback
         return text.strip()
+
+    # ---------------------------------------------------------------------
+    # Q&A: ANSWER QUESTION USING DOCS (NO FACTCHECK/REWRITE PIPELINE)
+    # ---------------------------------------------------------------------
+    def answer_question_from_docs(self, question_text: str, history_snippet: Optional[str] = None) -> str:
+        """
+        Answer the user's question using ONLY the selected CAMPUS_DOCS, but return a JSON object:
+
+          {"status":"ANSWER","answer":"..."}
+          {"status":"NEED_INFO","question":"..."}
+          {"status":"NOT_IN_DOCS"}
+
+        Notes:
+        - The LLM MUST NOT ask the user directly as plain text; it must output JSON only.
+        - The caller (Rasa action/flow) decides what to do with NEED_INFO / NOT_IN_DOCS.
+        """
+
+        def _as_json(obj: dict) -> str:
+            # Always return valid JSON string
+            return json.dumps(obj, ensure_ascii=False)
+
+        q = _clean(question_text)
+        snippet = _clean(history_snippet or "")
+
+        if not q:
+            return _as_json({"status": "NEED_INFO", "question": "Could you rephrase your question?"})
+
+        if not self.client:
+            # Treat as not answerable right now (caller can show generic fallback)
+            return _as_json({"status": "NOT_IN_DOCS"})
+
+        # Heuristic: if the question is pronoun-heavy / context-dependent, use snippet for retrieval too
+        q_lower = q.lower()
+        needs_context = bool(re.search(r"\b(it|there|that|this|here|back|again|those|them)\b", q_lower)) or len(q) < 18
+        retrieval_query = f"{snippet}\n\nLATEST_QUESTION:\n{q}" if (snippet and needs_context) else q
+
+        docs_text = self._load_building_docs(retrieval_query)
+
+        system_msg = (
+            "You are CampusCompass, a campus assistant at Radboud University Nijmegen.\n"
+            "You must respond with EXACTLY ONE JSON object and nothing else.\n"
+            "\n"
+            "Output format (choose exactly one):\n"
+            "1) If you can answer confidently from CAMPUS_DOCS:\n"
+            "   {\"status\":\"ANSWER\",\"answer\":\"<final answer>\"}\n"
+            "2) If the user did not provide enough information (missing/ambiguous), but an answer might exist:\n"
+            "   {\"status\":\"NEED_INFO\",\"question\":\"<one short clarifying question>\"}\n"
+            "3) If the answer cannot be found in CAMPUS_DOCS:\n"
+            "   {\"status\":\"NOT_IN_DOCS\"}\n"
+            "\n"
+            "Hard rules:\n"
+            "- Do NOT include any keys other than those shown above.\n"
+            "- Do NOT output markdown, code fences, explanations, or extra text.\n"
+            "- Do NOT mention or refer to sources, documents, files, context, knowledge base, or 'available information'.\n"
+            "- Do NOT invent opening hours, addresses, room numbers, prices, line numbers, or other precise facts.\n"
+            "- If multiple interpretations exist and you cannot disambiguate from the text, use NEED_INFO.\n"
+            "- If the question is about live/real-time info (e.g., current departures), and it is not explicitly described, use NOT_IN_DOCS.\n"
+            "\n"
+            "Answer formatting rules (ONLY for the 'answer' string):\n"
+            "- Plain text only: no markdown, no bullets, no bold, no headings.\n"
+            "- NEVER start a line with '-', '*', '•', or a number like '1.' or '1)'.\n"
+            "- If the context contains bullet points, rewrite them into ONE line separated by semicolons.\n"
+            "- Newlines are allowed.\n"
+            "- Keep it concise and directly useful.\n"
+            "- Answer in English.\n"
+        )
+        user_msg = (
+            f"CONVERSATION_CONTEXT (may help resolve pronouns):\n{snippet}\n\n"
+            f"USER_QUESTION:\n{q}\n\n"
+            f"CAMPUS_DOCS:\n{docs_text}\n\n"
+            "Return the JSON object now."
+        )
+
+        text = self._chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            model="gpt-4o-mini",
+            temperature=0.0,
+            max_completion_tokens=260,
+        )
+
+        raw = (text or "").strip()
+        if not raw:
+            return _as_json({"status": "NOT_IN_DOCS"})
+
+        # Robust JSON extraction (in case the model wraps it accidentally)
+        candidate = raw
+        if not (candidate.startswith("{") and candidate.endswith("}")):
+            m = re.search(r"\{.*\}", candidate, flags=re.DOTALL)
+            if m:
+                candidate = m.group(0).strip()
+
+        try:
+            obj = json.loads(candidate)
+        except Exception:
+            return _as_json({"status": "NOT_IN_DOCS"})
+
+        # Validate strict schema
+        status = (obj.get("status") or "").strip()
+        if status == "ANSWER":
+            if set(obj.keys()) != {"status", "answer"}:
+                return _as_json({"status": "NOT_IN_DOCS"})
+            answer = (obj.get("answer") or "").strip()
+            if not answer:
+                return _as_json({"status": "NOT_IN_DOCS"})
+            return _as_json({"status": "ANSWER", "answer": answer})
+
+        if status == "NEED_INFO":
+            if set(obj.keys()) != {"status", "question"}:
+                return _as_json({"status": "NOT_IN_DOCS"})
+            question = (obj.get("question") or "").strip()
+            if not question:
+                return _as_json({"status": "NOT_IN_DOCS"})
+            return _as_json({"status": "NEED_INFO", "question": question})
+
+        if status == "NOT_IN_DOCS":
+            if set(obj.keys()) != {"status"}:
+                return _as_json({"status": "NOT_IN_DOCS"})
+            return _as_json({"status": "NOT_IN_DOCS"})
+
+        return _as_json({"status": "NOT_IN_DOCS"})

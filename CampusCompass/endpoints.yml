@@ -17,7 +17,7 @@ model_groups:
         model: gpt-4o-mini
         timeout: 30
         api_key: ${OPENAI_API_KEY}
-        temperature: 0.2
+        temperature: 0.0
 
   # 3) Embeddings model voor indexing/search
   - id: openai_embeddings_model

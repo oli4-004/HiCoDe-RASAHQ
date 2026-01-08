@@ -246,22 +246,33 @@
 
         const msgs = answer.data;
         if (!Array.isArray(msgs) || !msgs.length) {
-          bubble('bot', "<em>Hmm, it seems like Rasa didn't provide me with a reply to give to you...</em>");
+          console.warn("[CLIENT] empty response from Rasa (silent flow).");
           return;
         }
 
         for (const m of msgs) {
-          if (m.text) {
-            bubble('bot', strip(m.text));
+          const hasButtons = !!(m.buttons && m.buttons.length);
+          const hasImage = !!m.image;
+          const hasText = !!m.text;
+
+          // niets te tonen? skip
+          if (!hasText && !hasImage && !hasButtons) continue;
+
+          // 1 bubble per message
+          const initialHtml = hasText ? strip(m.text) : (hasButtons ? '<strong>Choices</strong>' : '');
+          const row = bubble('bot', initialHtml);
+          const bubbleEl = row.querySelector('.bubble');
+
+          if (hasImage) {
+            const img = document.createElement('img');
+            img.src = (m.image || '').toString();
+            img.alt = 'Route map';
+            img.style.maxWidth = '100%';
+            img.style.borderRadius = '12px';
+            bubbleEl.appendChild(img);
           }
-          if (m.image) {
-            bubble(
-              'bot',
-              `<img src="${strip(m.image)}" alt="Route map" style="max-width:100%;border-radius:12px">`
-            );
-          }
-          if (m.buttons && m.buttons.length) {
-            const row = bubble('bot', '<strong>Choices</strong>');
+
+          if (hasButtons) {
             const wrap = document.createElement('div');
             wrap.className = 'chips';
 
@@ -269,13 +280,28 @@
               const el = document.createElement('div');
               el.className = 'chip';
               el.textContent = btn.title || btn.payload;
-              el.onclick = () => sendMessage(btn.payload || btn.title);
+
+              el.onclick = () => {
+                const url =
+                  (typeof btn.url === "string" && btn.url.trim().match(/^https?:\/\//i) ? btn.url.trim() : null) ||
+                  (typeof btn.payload === "string" && btn.payload.trim().match(/^\/https?:\/\//i) ? btn.payload.trim().slice(1) : null) ||
+                  (typeof btn.payload === "string" && btn.payload.trim().match(/^https?:\/\//i) ? btn.payload.trim() : null);
+
+                if (url) {
+                  window.open(url, "_blank", "noopener,noreferrer");
+                  return;
+                }
+
+                sendMessage(btn.payload || btn.title);
+              };
+
               wrap.appendChild(el);
             });
 
-            row.querySelector('.bubble').appendChild(wrap);
+            bubbleEl.appendChild(wrap);
           }
         }
+
       }
 
       SEND.addEventListener('click', () => sendMessage(INPUT.value.trim()));

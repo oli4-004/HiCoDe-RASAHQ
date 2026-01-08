@@ -188,7 +188,7 @@ class MapsController:
                 continue
 
         # Limit steps so the prompt stays reasonable
-        instruction_lines = [s for s in instruction_lines if s][:12]
+        instruction_lines = [s for s in instruction_lines if s]
 
         buildings = BUILDING_COORDS or []
 
