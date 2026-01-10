@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Text
+from typing import Any, Dict, List, Optional, Text, Literal
 
 import logging
 import json
@@ -21,6 +21,8 @@ logger = logging.getLogger("campuscompass.actions")
 # ---------------------------
 _llm_controller: Optional[LLMController] = None
 _maps_controller: Optional[MapsController] = None
+
+HistoryMode = Literal["full", "deep_user", "latest_user"]
 
 
 def get_llm_controller() -> LLMController:
@@ -44,18 +46,57 @@ def get_maps_controller() -> MapsController:
     return _maps_controller
 
 
-def build_history_snippet(tracker: Tracker, max_messages: int = 10) -> str:
+def build_history_snippet(
+    tracker: Tracker,
+    max_messages: int = 10,
+    *,
+    history_mode: HistoryMode = "full",
+    max_user_messages: int = 3,
+) -> str:
     """
-    Build a short conversation snippet from the last few user+assistant
-    messages, in chronological order, with explicit prefixes.
+    Build a short conversation snippet in different modes:
+
+    - history_mode="full":
+        last user+assistant messages (like before), with same-turn bot masking via
+        metadata.fact_check_override.
+    - history_mode="deep_user":
+        last N user-only messages (N=max_user_messages), chronological.
+    - history_mode="latest_user":
+        only the latest user message.
 
     Example:
         User: Oh no! I lost my student card...
         Assistant: You can request a new student card at the Central Student Desk in the Berchmanianum.
         User: How can I get there as quickly as possible?
     """
-    # If we encounter a corrected bot message, we skip earlier bot messages
-    # until we hit the previous user message (same turn masking).
+    # latest_user
+    if history_mode == "latest_user":
+        text = (tracker.latest_message.get("text") or "").strip()
+        if not text:
+            # Fallback: find last user event
+            for e in reversed(tracker.events):
+                if e.get("event") == "user":
+                    t = (e.get("text") or "").strip()
+                    if t:
+                        text = t
+                        break
+        return f"User: {text}" if text else ""
+
+    # deep_user (user-only)
+    if history_mode == "deep_user":
+        lines: List[str] = []
+        for e in reversed(tracker.events):
+            if e.get("event") != "user":
+                continue
+            text = (e.get("text") or "").strip()
+            if not text:
+                continue
+            lines.append(f"User: {text}")
+            if len(lines) >= max_user_messages:
+                break
+        return "\n".join(reversed(lines)) if lines else ""
+
+    # full (user + bot)
     lines: List[str] = []
     skip_bots_until_user = False
 
@@ -90,10 +131,7 @@ def build_history_snippet(tracker: Tracker, max_messages: int = 10) -> str:
         if len(lines) >= max_messages:
             break
 
-    if not lines:
-        return ""
-
-    return "\n".join(reversed(lines))
+    return "\n".join(reversed(lines)) if lines else ""
 
 
 # ---------------------------------------------------------------------------
@@ -147,12 +185,6 @@ class ActionGetRouteDescription(Action):
     ) -> List[Dict[str, Any]]:
 
         mode_hint = (tracker.get_slot("travel_mode_hint") or "").strip().lower()
-        if mode_hint == "public_transport":
-            dispatcher.utter_message(
-                text="For bus/train routes I recommend a live planner (9292 or Google Maps). "
-                     "If you want a walking, cycling or driving route, tell me: walk / bike / car."
-            )
-            return []
 
         source_raw = (tracker.get_slot("source_building_raw") or "").strip()
         target_raw = (tracker.get_slot("target_building_raw") or "").strip()
@@ -191,11 +223,31 @@ class ActionGetRouteDescription(Action):
             # 2) call MapsController to get structured route data
             travel_mode = llm.normalize_travel_mode(mode_hint)
             logger.info("[ROUTE] normalized_mode=%s", travel_mode)
+
+            pretty_mode = {
+                "walking": "walking",
+                "bicycling": "cycling",
+                "driving": "car",
+                "transit": "public transport",
+            }.get(travel_mode, travel_mode)
+
+            dispatcher.utter_message(text=f"Your directions are for {pretty_mode}.")
+
             route_data = maps.get_walking_directions(
                 origin_name=source_normalized,
                 destination_name=target_normalized,
                 mode=travel_mode,
             )
+
+            if travel_mode == "transit":
+                steps = route_data.get("steps") or []
+                transit_segments = [s for s in steps if
+                                    isinstance(s, str) and ("Transit" in s or "Bus" in s or "Train" in s)]
+                if not transit_segments:
+                    distance = route_data.get("distance_text") or ""
+                    msg = f"This trip is only {f'{distance}' if distance else 'short'}. Public transport isn’t suggested for this distance, so walking is a better option."
+                    dispatcher.utter_message(text=msg)
+                    travel_mode = "walking"
 
             # 3) let the LLM turn route_data into a user-friendly message
             answer_text = llm.format_route_description(
@@ -210,15 +262,12 @@ class ActionGetRouteDescription(Action):
             dispatcher.utter_message(response="utter_route_api_error")
             return []
 
-        # 4) Stuur de route terug als meerdere bubbels + eventueel een kaartje
         map_url: Optional[str] = None
         if isinstance(route_data, dict):
             map_url = route_data.get("static_map_url") or None
 
-        # Split de gegenereerde tekst op regels en stuur elke niet-lege regel als aparte bubble
         lines = [line.strip() for line in (answer_text or "").split("\n") if line.strip()]
         if not lines:
-            # fallback: toch één bericht sturen als er iets misging met de formatting
             dispatcher.utter_message(text=answer_text or "Here is your route.")
         else:
             for line in lines:
@@ -230,6 +279,31 @@ class ActionGetRouteDescription(Action):
             )
         return []
 
+class ActionUsePrevRouteSlots(Action):
+    def name(self) -> Text:
+        return "action_use_prev_route_slots"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[Text, Any],
+    ) -> List[EventType]:
+        events: List[EventType] = []
+
+        cur_source = (tracker.get_slot("source_building_raw") or "").strip()
+        cur_target = (tracker.get_slot("target_building_raw") or "").strip()
+
+        prev_source = (tracker.get_slot("prev_source_building_raw") or "").strip()
+        prev_target = (tracker.get_slot("prev_target_building_raw") or "").strip()
+
+        if not cur_source and prev_source:
+            events.append(SlotSet("source_building_raw", prev_source))
+
+        if not cur_target and prev_target:
+            events.append(SlotSet("target_building_raw", prev_target))
+
+        return events
 
 class ActionClearRouteContext(Action):
     def name(self) -> Text:
@@ -292,7 +366,11 @@ class ActionLLMPrefillRouteSlots(Action):
         prev_source = (tracker.get_slot("prev_source_building_raw") or "").strip()
         prev_target = (tracker.get_slot("prev_target_building_raw") or "").strip()
 
-        history_snippet = build_history_snippet(tracker, max_messages=10)
+        history_snippet = build_history_snippet(
+            tracker,
+            history_mode = "deep_user",
+            max_user_messages = 3,
+        )
         if not history_snippet:
             return events
 
@@ -323,6 +401,14 @@ class ActionLLMPrefillRouteSlots(Action):
         if not current_target and tgt:
             events.append(SlotSet("target_building_raw", tgt))
 
+        def _is_station(s: str) -> bool:
+            return "station" in (s or "").strip().lower()
+
+        if src and tgt and _is_station(src) and _is_station(tgt):
+            current_hint = (tracker.get_slot("travel_mode_hint") or "").strip().lower()
+            if current_hint in {"", "unknown", "public_transport_info"}:
+                events.append(SlotSet("travel_mode_hint", "transit"))
+
         return events
 
 
@@ -347,14 +433,18 @@ class ActionLLMPrefillTravelMode(Action):
     ) -> List[EventType]:
         events: List[EventType] = []
 
-        VALID = {"walk", "bike", "car", "public_transport", "unknown"}
+        VALID = {"walk", "bike", "car", "transit", "public_transport_info", "unknown"}
 
         current_hint = (tracker.get_slot("travel_mode_hint") or "").strip().lower()
 
         if current_hint in VALID and current_hint != "unknown":
             return events
 
-        history_snippet = build_history_snippet(tracker, max_messages=10)
+        history_snippet = build_history_snippet(
+            tracker,
+            history_mode="deep_user",
+            max_user_messages = 3,
+        )
         if not history_snippet:
             return events
 
@@ -409,7 +499,10 @@ class ActionLLMPrefillAbbreviation(Action):
             # Already set → do not overwrite.
             return events
 
-        history_snippet = build_history_snippet(tracker, max_messages=10)
+        history_snippet = build_history_snippet(
+            tracker,
+            history_mode="latest_user"
+        )
         if not history_snippet:
             return events
 
@@ -529,7 +622,11 @@ class ActionTriggerSearchLLM(Action):
         llm = get_llm_controller()
 
         # Use recent conversation context to resolve pronouns like "there", "it", "that building", etc.
-        history_snippet = build_history_snippet(tracker, max_messages=10)
+        history_snippet = build_history_snippet(
+            tracker,
+            history_mode="full",
+            max_messages=10
+        )
 
         try:
             raw_json = llm.answer_question_from_docs(
@@ -553,7 +650,6 @@ class ActionTriggerSearchLLM(Action):
 
         status = (obj.get("status") or "").strip()
 
-        # Always clear question unless we explicitly set it
         events: List[EventType] = [
             SlotSet("docs_need_info_question", None),
         ]
@@ -569,7 +665,7 @@ class ActionTriggerSearchLLM(Action):
                 text=answer,
                 metadata={"answered_by": "llm_docs_selector", "docs_status": "ANSWER"},
             )
-            events.append(SlotSet("docs_status", None))  # clear so we don't get stuck
+            events.append(SlotSet("docs_status", None))
             return events
 
         if status == "NEED_INFO":

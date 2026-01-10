@@ -23,6 +23,12 @@ GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 DOCS_DIR = CC_ROOT / "docs"
 BUILDING_COORDS_PATH = DOCS_DIR / "building_coordinates.json"
 
+CHATS_DIR = CC_ROOT / "chats"
+CHATS_DIR.mkdir(parents=True, exist_ok=True)
+
+ROUTES_DIR = CC_ROOT / "routes"
+ROUTES_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def _load_building_coords() -> list[dict]:
     """

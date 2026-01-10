@@ -25,6 +25,20 @@ $LOG_DIR = Join-Path $BOT_ROOT "logs"
 if (!(Test-Path $LOG_DIR)) {
     New-Item -ItemType Directory -Path $LOG_DIR | Out-Null
 }
+# Extra logs (truncate / create)
+$mapsLog = Join-Path $LOG_DIR "maps_calls.log"
+$llmLog  = Join-Path $LOG_DIR "llm_debug.log"
+
+"" | Set-Content -Path $mapsLog -Encoding utf8
+"" | Set-Content -Path $llmLog  -Encoding utf8
+
+$ROUTES_DIR = Join-Path $BOT_ROOT "routes"
+if (!(Test-Path $ROUTES_DIR)) {
+    New-Item -ItemType Directory -Path $ROUTES_DIR | Out-Null
+} else {
+    Remove-Item -Recurse -Force (Join-Path $ROUTES_DIR "*") -ErrorAction SilentlyContinue
+}
+
 $actionsLog = Join-Path $LOG_DIR "actions_server.log"
 $coreLog    = Join-Path $LOG_DIR "rasa_core.log"
 

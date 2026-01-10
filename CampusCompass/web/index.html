@@ -245,6 +245,7 @@
         typing.remove();
 
         const msgs = answer.data;
+        console.log("[CLIENT] image messages:", msgs.filter(m => m.image).map(m => m.image));
         if (!Array.isArray(msgs) || !msgs.length) {
           console.warn("[CLIENT] empty response from Rasa (silent flow).");
           return;
@@ -264,12 +265,15 @@
           const bubbleEl = row.querySelector('.bubble');
 
           if (hasImage) {
-            const img = document.createElement('img');
-            img.src = (m.image || '').toString();
-            img.alt = 'Route map';
-            img.style.maxWidth = '100%';
-            img.style.borderRadius = '12px';
-            bubbleEl.appendChild(img);
+              const img = document.createElement('img');
+
+              let src = (m.image || '').toString();
+              if (src.startsWith("/")) src = PRIMARY_BASE + src;
+              img.src = src;
+              img.alt = 'Route map';
+              img.style.maxWidth = '100%';
+              img.style.borderRadius = '12px';
+              bubbleEl.appendChild(img);
           }
 
           if (hasButtons) {

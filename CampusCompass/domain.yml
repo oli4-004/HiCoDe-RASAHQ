@@ -173,6 +173,7 @@ actions:
   - action_llm_prefill_travel_mode
   - action_get_route_description
   - action_clear_route_context
+  - action_use_prev_route_slots
 
   # ---------------------------------------------------------------------------
   # ABBREVIATIONS

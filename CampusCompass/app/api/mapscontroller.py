@@ -114,6 +114,9 @@ class MapsController:
             "key": self.api_key,
         }
 
+        if mode == "transit":
+            params["departure_time"] = int(time.time())
+
         url = "https://maps.googleapis.com/maps/api/directions/json"
 
         resp = self._client.get(url, params=params)
@@ -160,13 +163,17 @@ class MapsController:
         instruction_lines: List[str] = []
         segments: List[Dict[str, float]] = []
 
+        step_modes: List[str] = []
+        segments_per_step: List[Optional[Dict[str, float]]] = []
+
         for s in steps:
+            step_mode = (s.get("travel_mode") or "").upper()
+            step_modes.append(step_mode)
+
             html_instr = s.get("html_instructions") or ""
             dist_text = (s.get("distance") or {}).get("text") or ""
             plain = self._clean_html(html_instr)
 
-            # Voeg de afstand toe aan de stap, zodat de LLM die kan gebruiken.
-            # Voorbeeld: "Turn right onto Willem Nuyenslaan (300 m)"
             if dist_text:
                 instruction_lines.append(f"{plain} ({dist_text})")
             else:
@@ -183,25 +190,40 @@ class MapsController:
                     "end_lng": float(end.get("lng")),
                 }
                 segments.append(seg)
+                segments_per_step.append(seg)
             except (TypeError, ValueError):
-                # als er iets geks in de JSON zit, slaan we dit segment over
-                continue
+                # keep alignment with steps
+                segments_per_step.append(None)
 
-        # Limit steps so the prompt stays reasonable
         instruction_lines = [s for s in instruction_lines if s]
 
         buildings = BUILDING_COORDS or []
 
-        # Bepaal welke gebouwen echt vlak langs de volledige route liggen
+        segments_for_landmarks = segments
+        if mode == "transit":
+            segments_for_landmarks = [
+                seg for seg, sm in zip(segments_per_step, step_modes)
+                if seg is not None and sm == "WALKING"
+            ]
+
         landmarks = self._find_buildings_along_route(
-            segments=segments,
+            segments=segments_for_landmarks,
             buildings=buildings,
             max_distance_m=self.max_distance,
         )
 
-        # Ruwe per-stap kandidaten (alle gebouwen onder de drempel per segment)
         raw_step_buildings: List[List[Dict[str, Any]]] = []
-        for seg in segments:
+
+        for seg, sm in zip(segments_per_step, step_modes):
+            # No segment => no buildings
+            if seg is None:
+                raw_step_buildings.append([])
+                continue
+
+            if mode == "transit" and sm != "WALKING":
+                raw_step_buildings.append([])
+                continue
+
             per_step = self._find_buildings_for_segment(
                 segment=seg,
                 buildings=buildings,
@@ -209,11 +231,9 @@ class MapsController:
             )
             raw_step_buildings.append(per_step)
 
-        # Normaliseer origin/destination naar "basisnaam" (stuk vóór eerste komma)
         origin_base = (origin_name.split(",")[0] or "").strip()
         dest_base = (destination_name.split(",")[0] or "").strip()
 
-        # Zoek bijbehorende building-records (uit BUILDING_COORDS)
         def _find_building_record(base_name: str) -> Optional[Dict[str, Any]]:
             base_lower = (base_name or "").strip().lower()
             for b in buildings:
@@ -372,11 +392,13 @@ class MapsController:
 
     def _to_maps_query(self, building_name: str) -> str:
         """
-        Convert a (normalized) building name into a query string for Google Maps.
+        Convert a (normalized) location name into a query string for Google Maps.
 
-        - Als de naam al een volledig adres met 'Nijmegen' bevat, stuur die
-          1-op-1 door.
-        - Alleen bij vage namen voeg je 'Radboud University Nijmegen' toe.
+        Rules:
+        - If it's already an address or contains 'Nijmegen' -> pass through.
+        - If it contains 'station' -> NEVER append Radboud context (it's not a campus building).
+        - If it's a known campus building (BUILDING_COORDS) -> append Radboud context.
+        - Otherwise -> keep generic country context to help geocoding.
         """
         cleaned = (building_name or "").strip()
         if not cleaned:
@@ -384,12 +406,27 @@ class MapsController:
 
         lower = cleaned.lower()
 
-        # Als het er al uitziet als adres in Nijmegen → niet meer aanklooien.
         if "nijmegen" in lower:
             return cleaned
+        if "," in cleaned or re.search(r"\d", cleaned):
+            return cleaned
 
-        # Anders wat extra context zodat Maps snapt dat het om de campus gaat.
-        return f"{cleaned}, Radboud University Nijmegen, Nijmegen, Netherlands"
+        if "station" in lower:
+            # Add minimal context; don't bias towards RU campus.
+            return f"{cleaned}, Netherlands"
+
+        base = cleaned.split(",")[0].strip().lower()
+        is_known = False
+        for b in (BUILDING_COORDS or []):
+            bname = (b.get("name") or "").split(",")[0].strip().lower()
+            if bname == base:
+                is_known = True
+                break
+
+        if is_known:
+            return f"{cleaned}, Radboud University Nijmegen, Nijmegen, Netherlands"
+
+        return f"{cleaned}, Netherlands"
 
     def _clean_html(self, text: str) -> str:
         """

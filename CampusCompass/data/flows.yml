@@ -1050,72 +1050,73 @@ flows:
   # ---------------------------------------------------------------------------
   route_description_flow:
     description: |
-      Handles on-campus directions between two campus buildings or places
-      when the user wants to WALK, CYCLE or go by CAR.
+      Handles step-by-step directions between two places (A → B) for:
+      WALK, CYCLE, CAR, or TRANSIT (public-transport route).
 
       WHEN TO USE THIS FLOW
-      - The user clearly indicates a walking, cycling or car route, with words like
-        "on foot", "by foot", "walking", "walk", "by bike", "cycling", "fiets",
-        "by car", "met de auto".
-      - OR the slot travel_mode_hint has already been collected or classified as
-        "walk", "bike" or "car" (for example by travel_mode_clarification_flow
-        or action_llm_prefill_travel_mode).
-      - The focus is a route between campus buildings / places
-        (e.g. "How do I get from MM to Huygens?", "How do I walk to EOS?",
-        "How do I drive from Berchmanianum to Huygens?").
+      - The user asks for a route between two places and either:
+        - explicitly mentions a mode ("walk", "bike", "car", "by bus/train", "OV"), OR
+        - travel_mode_hint is already known AND the user is asking for a route A → B.
+      - Typical examples:
+        - "How do I get from MM to Huygens?"
+        - "How do I drive from Berchmanianum to Huygens?"
+        - "How do I get from Nijmegen Centraal to Huygens by train?"
 
-      RELATION TO PUBLIC TRANSPORT
-      - If the user explicitly talks about trains, buses, OV, stations or stops,
-        this flow should NOT be used; in that case, use public_transport_flow.
-      - If the user only mentions buildings (e.g. "How do I get to EOS?")
-        and does NOT mention walking/cycling/car or public transport, the assistant
-        should FIRST start travel_mode_clarification_flow to ask for the
-        preferred mode, instead of guessing.
+      WHAT THIS FLOW IS NOT FOR
+      - Short follow-ups that ONLY switch the mode for the previous route context
+        (e.g. "By bus?", "And by train?", "Same route but OV").
+        Those should go to mode_switch_flow, which reuses prev_* slots.
 
-      SLOT BEHAVIOUR
-      - By the time this flow runs, source_building_raw and/or target_building_raw
-        may already be filled from a previous user message (for example in
-        travel_mode_clarification_flow or via action_llm_prefill_route_slots).
-      - This flow should reuse those slots where possible and only ask the user
-        for missing information.
-      - After giving the route, the custom action action_clear_route_context
-        should reset the route-related slots (including travel_mode_hint) so
-        the assistant does not stay stuck in a previous route context.
+      RELATION TO PUBLIC TRANSPORT INFO
+      - If the user primarily asks for public transport information (closest stop/station,
+        which line, etc.) instead of a step-by-step route, use public_transport_flow.
+
+      SLOT BEHAVIOUR / STATE
+      - This flow may reuse existing source_building_raw / target_building_raw if present.
+      - Avoid leaving stale route slots behind that could cause accidental mode assumptions later.
+        If clearing slots at the end causes the flow to re-collect/hang, do the cleanup inside
+        action_get_route_description (snapshot → prev_* and clear current slots) instead of as
+        a separate final step.
 
     steps:
       - set_slots:
           - fallback_attempts: 0
+      - action: action_clear_route_context
       - action: action_llm_prefill_route_slots
       - action: action_llm_prefill_travel_mode
         next:
-          - if: slots.travel_mode_hint == "public_transport"
+          - if: slots.travel_mode_hint == "public_transport_info"
             then:
               - link: public_transport_flow
           - if: slots.travel_mode_hint == "unknown"
             then:
-              - link: travel_mode_clarification_flow
-          - else:
-              - collect: source_building_raw
-                ask_before_filling: false
-              - collect: target_building_raw
-                ask_before_filling: false
-              - action: action_get_route_description
-              - action: action_clear_route_context
-                next: END
+              - call: travel_mode_clarification_flow
+                next: collect_source_building
+          - else: collect_source_building
+      - id: collect_source_building
+        collect: source_building_raw
+        ask_before_filling: false
+
+      - collect: target_building_raw
+        ask_before_filling: false
+
+      - action: action_get_route_description
+        next: END
+
 
 
   travel_mode_clarification_flow:
     description: |
-      Clarifies whether the user wants to WALK/CYCLE/CAR or use PUBLIC TRANSPORT
+      Clarifies whether the user wants to WALK/CYCLE/CAR or travel by PUBLIC TRANSPORT (TRANSIT)
       when the mode is not obvious from their question.
-
+  
       WHEN TO USE THIS FLOW
-      - The user asks how to get to or from one or more campus buildings
+      - The user asks how to get to or from one or more campus buildings / places
         (e.g. "How do I get to EOS?", "How do I get from MM to HG?"),
-        BUT they do NOT clearly mention walking, cycling, car or public transport.
-      - In that case, the assistant MUST NOT guess a mode (walk vs OV vs car).
+        BUT they do NOT clearly mention walking, cycling, car or transit/public transport.
+      - In that case, the assistant MUST NOT guess a mode.
         Instead, it should start this flow.
-
+  
       SLOT BEHAVIOUR
       - Before asking about the travel mode, this flow first tries to silently fill
         source_building_raw and target_building_raw from the user's message
@@ -1129,72 +1130,101 @@ flows:
         "Do you want to walk, cycle, go by car, or use public transport (bus/train)?"
         (implemented via utter_ask_travel_mode_hint in the domain).
       - This ensures that a question like "How do I get to EOS?" already populates
-        target_building_raw = "EOS", and that questions like
-        "How do I get there by train?" can often be classified as
-        travel_mode_hint = "public_transport" without asking again.
-
+        target_building_raw = "EOS".
+  
       BEHAVIOUR
-      - After travel_mode_hint is filled, the flow ends.
-      - The next user message (often a short answer like "by foot" or "by bus")
-        allows the patterns and policies to route to:
-        - route_description_flow when travel_mode_hint = "walk", "bike" or "car",
-        - public_transport_flow when travel_mode_hint = "public_transport".
+      - This flow is only called from route_description_flow to clarify the user's
+        preferred travel mode. After travel_mode_hint is collected, the flow ends
+        and control returns to the calling flow.
+      - This flow is call-only (not started directly), and is invoked from route_description_flow.
 
+    if: False
+    steps:
+        - set_slots:
+            - travel_mode_hint: null
+        - collect: travel_mode_hint
+          next: END
+
+  mode_switch_flow:
+    description: |
+      Handles short follow-ups that only switch the travel mode for the LAST route,
+      e.g. "by bus", "by train", "public transport", "ov", "met de bus".
+      Reuses prev_* route context if the user doesn't repeat source/target.
+      
+      NOTE
+      - This flow assumes prev_source_building_raw / prev_target_building_raw are set by the last
+        completed route answer (preferably inside action_get_route_description).
     steps:
       - set_slots:
           - fallback_attempts: 0
-      - action: action_llm_prefill_route_slots
-      - action: action_llm_prefill_travel_mode
-      - collect: source_building_raw
-        ask_before_filling: false
-      - collect: target_building_raw
-        ask_before_filling: false
-      - collect: travel_mode_hint
-        ask_before_filling: true
+
       - action: action_llm_prefill_travel_mode
         next:
-            - if: slots.travel_mode_hint == "public_transport"
-              then:
-                - link: public_transport_flow
-            - else:
-                - link: route_description_flow
+          - if: slots.travel_mode_hint == "public_transport_info"
+            then:
+              - link: public_transport_flow
+          - else:
+              - action: action_use_prev_route_slots
+                next: collect_source_building
+
+      - id: collect_source_building
+        collect: source_building_raw
+        ask_before_filling: false
+
+      - collect: target_building_raw
+        ask_before_filling: false
+
+      - action: action_get_route_description
+
+      - action: action_clear_route_context
+        next: END
+
 
   public_transport_flow:
     description: |
-      Handles questions about PUBLIC TRANSPORT (OV) to, from and around campus:
-      trains, buses and nearby stations/stops.
+      Handles questions about PUBLIC TRANSPORT INFORMATION (OV info) to, from and around campus:
+      which stations/stops are relevant, which line is typically used (if documented),
+      and general orientation — but NOT a full step-by-step transit route.
 
       WHEN TO USE THIS FLOW
-      - The user explicitly talks about public transport concepts, such as:
-        "train", "bus", "tram", "OV", "NS", "Arriva", "station", "bus stop",
-        line numbers, etc.
-      - OR the slot travel_mode_hint is "public_transport", for example after
-        travel_mode_clarification_flow or action_llm_prefill_travel_mode.
+      - The user explicitly asks for public transport *info* concepts, such as:
+        "Which station is closest to Huygens?"
+        "Is there a bus stop near the University Library?"
+        "Which bus line should I take to EOS?"
+        "What OV should I use to get to campus?"
+      - OR the slot travel_mode_hint is "public_transport_info", for example after
+        action_llm_prefill_travel_mode.
       - Typical examples:
-        - "How do I get to campus by train?"
         - "Which bus should I take to EOS?"
         - "Which station is closest to Huygens?"
         - "Is there a bus stop near the University Library?"
-        - "How do I get from Nijmegen Central to campus?"
 
-      RELATION TO WALKING ROUTES
-      - Do NOT use this flow for detailed walking directions between two
-        campus buildings when the user just wants an on-campus walking route
-        (e.g. "how do I walk from MM to Huygens?"); use route_description_flow.
-      - However, you may describe short walking segments that are part of a
-        public-transport route (e.g. "From Nijmegen Heyendaal station, walk
-        about 5 minutes to Huygens").
+      RELATION TO TRANSIT ROUTES
+      - Do NOT use this flow for a step-by-step transit route between two places
+        (e.g. "How do I get from Nijmegen Centraal to Huygens by train?").
+        Those should be handled by route_description_flow with travel_mode_hint = "transit".
+      - Short follow-ups that ONLY switch the mode to transit/public transport for the SAME route context,
+        for example:
+        - "And by bus?"
+        - "By bus?"
+        - "Same route but by public transport"
+        - "What about by train?"
+        should be handled by mode_switch_flow (which reuses prev_* route slots),
+        unless the user is explicitly asking for info like a line/stop/station.
+
+      - However, you may still mention short walking segments in your informational answer
+        if they are explicitly documented (e.g. "From Nijmegen Heyendaal station, it's about
+        a 5-minute walk to Huygens").
 
       SLOT / STATE CLEANUP
       - This flow may also use source_building_raw and target_building_raw
         to ground its advice (for example 'from Nijmegen Centraal to EOS').
         action_llm_prefill_route_slots is used to extract these where possible.
-      - After answering it should not leave the conversation stuck in that
-        route context. The custom action action_clear_route_context is called
-        at the end to:
-        - reset travel_mode_hint to "unknown",
-        - clear source_building_raw and target_building_raw (and optionally
-          copy them to previous-* slots if you use those).
+      - After answering it should not leave the conversation stuck in a
+        route context. action_clear_route_context is called at the end.
+      - NOTE: If end-of-flow slot clearing causes re-collection or the flow to "hang" in your setup,
+        move the cleanup into the answering action (snapshot → prev_* and clear current route slots there),
+        rather than as a separate final step.
 
       BEHAVIOUR
       - Use action_trigger_search to consult campus transport information and
@@ -1204,12 +1234,9 @@ flows:
       - Answer with:
         - the relevant station(s) or bus stop(s),
         - the general line or direction (if documented),
-        - and one or two short sentences to orient the user:
-          for example: "From Nijmegen Central, take the train to Nijmegen
-          Heyendaal. From there, it is about a 5-minute walk to Huygens."
+        - and one or two short sentences to orient the user.
       - Do NOT provide live departure times or delays.
-      - If the docs do not contain concrete public transport details for that
-        building or route:
+      - If the docs do not contain concrete public transport details:
         - say clearly that the exact connection is not specified,
         - avoid guessing line numbers or timetables,
         - suggest using a Dutch public-transport planner (e.g. 9292 or NS)
@@ -1218,37 +1245,17 @@ flows:
     steps:
       - set_slots:
           - fallback_attempts: 0
-      - action: action_llm_prefill_route_slots
-      - action: action_llm_prefill_travel_mode
+      - action: action_trigger_search
         next:
-          - if: slots.travel_mode_hint == "walk"
+          - if: slots.docs_status == "NEED_INFO"
             then:
-              - link: route_description_flow
-          - if: slots.travel_mode_hint == "bike"
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
             then:
-              - link: route_description_flow
-          - if: slots.travel_mode_hint == "car"
-            then:
-              - link: route_description_flow
-          - if: slots.travel_mode_hint == "unknown"
-            then:
-              - link: travel_mode_clarification_flow
+              - link: docs_not_in_docs_flow
           - else:
-              - collect: source_building_raw
-                ask_before_filling: false
-              - collect: target_building_raw
-                ask_before_filling: false
-              - action: action_trigger_search
-                next:
-                  - if: slots.docs_status == "NEED_INFO"
-                    then:
-                      - link: docs_need_info_flow
-                  - if: slots.docs_status == "NOT_IN_DOCS"
-                    then:
-                      - link: docs_not_in_docs_flow
-                  - else:
-                      - action: action_clear_route_context
-                        next: END
+              - action: action_clear_route_context
+                next: END
 
   # ---------------------------------------------------------------------------
   # RASA DEFAULT PATTERN OVERRIDES (MINIMAL / LOW-NOISE)

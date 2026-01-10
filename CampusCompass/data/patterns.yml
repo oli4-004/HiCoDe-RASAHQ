@@ -203,11 +203,14 @@ patterns:
            - "Where is the SO building?"
            - "Where is MM on campus?"
            - "How do I get from HG to EOS?"
-           - "Is there a cafeteria in EOS?"
+           - "Which bus line should I take to EOS?"
+           - "Which station is closest to Huygens?"
+           - "Is there a cafeteria in EOS?" 
            - "Is there a prayer room in the library?"
            then this is NOT an abbreviation-meaning question. Instead,
            choose the appropriate thematic flow:
-             - route_description_flow or public_transport_flow for routes,
+             - route_description_flow for routes (walk/bike/car/transit),
+             - public_transport_flow only for OV-info questions (closest stop/station, which bus/line, etc.),
              - food_and_drink_flow for food / non-alcoholic drinks,
              - alcohol_and_bar_flow for alcohol / borrels,
              - study_association_flow for study associations,
@@ -486,32 +489,32 @@ patterns:
       - "Where do associations organise larger events?"
 
   # ---------------------------------------------------------------------------
-  # TRANSPORT & ROUTES (WALK / BIKE / PUBLIC TRANSPORT)
+  # TRANSPORT & ROUTES (WALK / BIKE / CAR / TRANSIT / PUBLIC TRANSPORT INFO)
   # ---------------------------------------------------------------------------
 
   route_patterns:
     description: |
       Detect when the user is asking how to get from one campus place to another,
       or how long it takes to travel between two places on or around campus.
-
+  
       INTENTS:
       - Use the intent ask_route_description when the user mainly wants directions
         in words between two locations (for example "How do I get from A to B?").
       - Use the intent ask_travel_time when the user mainly wants to know how long
-        it takes (walking/bus/bike/car) between two locations.
-
+        it takes (walking/transit/bike/car) between two locations.
+  
       HIGH-LEVEL DECISION:
-      - If the user clearly talks about WALKING or CYCLING, and mentions campus
-        buildings/places, treat it as an on-campus route:
+      - If the user clearly talks about WALKING, CYCLING, CAR, or a TRANSIT ROUTE
+        (e.g. "from A to B by bus/train"), and mentions buildings/places, treat it as a route:
         → use ask_route_description and route_description_flow.
-      - If the user clearly talks about PUBLIC TRANSPORT (train, bus, OV, station,
-        stop, line numbers, etc.), treat it as an OV question:
+      - If the user clearly asks for PUBLIC TRANSPORT INFORMATION (which bus/train line,
+        closest station/stop, bus stop near X, etc.), treat it as an OV-info question:
         → use public_transport_flow.
       - If the user mentions buildings/places but does NOT clearly specify
-        walking/cycling or public transport ("How do I get to EOS?"):
+        walking/cycling/car/transit or OV-info ("How do I get to EOS?"):
         → start travel_mode_clarification_flow first, so the assistant can ask
-          whether they prefer walking/cycling or OV.
-
+          whether they prefer walking/cycling/car or public transport.
+  
       RAW BUILDING SLOTS:
       - source_building_raw and target_building_raw:
         These store the raw building references exactly as the user phrases them,
@@ -519,7 +522,7 @@ patterns:
       - These raw slots are later read by a custom action (action_get_route_description),
         which internally normalizes them using the building documentation and the LLM.
         The patterns do NOT need to worry about canonical names or external APIs.
-
+  
       STRICT RULES FOR RAW SLOTS:
       - The slots source_building_raw and target_building_raw MUST normally contain
         building names that the user explicitly mentioned in their own words
@@ -531,10 +534,7 @@ patterns:
         then you MAY copy that assistant phrase into target_building_raw or
         source_building_raw as appropriate.
       - Do NOT invent or guess extra buildings, bus stops or locations based on
-        your knowledge base. For example, do NOT set target_building_raw to
-        "Erasmus building" just because you know that is the nearest bus stop for
-        EOS, if the user never wrote "Erasmus" and is not clearly referring back to
-        that assistant phrase.
+        your knowledge base.
       - If the user does not mention a starting point at all (e.g. "How do I
         get to EOS?"), only fill target_building_raw = "EOS" and leave
         source_building_raw empty so the flow can ask where the user is now.
@@ -542,7 +542,7 @@ patterns:
         leave source_building_raw empty. Do NOT invent values like "here",
         "my location", "your location", "current location", or "user_location"
         for any building slot.
-
+  
       BUILDING NAMES AND CODES:
       - Treat Radboud building names and codes as 'building', for example:
         Comenius, Comenius A, Comenius B, COM, COM A, COM B, CC, Collegezalencomplex,
@@ -554,7 +554,7 @@ patterns:
         exception above, to the clearly referenced assistant phrase.
       - If you are unsure, still try to map obvious campus building names to the
         building entity and to the appropriate slots, without inventing new names.
-
+  
       FLOW BEHAVIOUR (route_description_flow):
       1) First, the flow collects source_building_raw and target_building_raw.
          - If the user mentions both buildings in the same message,
@@ -569,15 +569,16 @@ patterns:
          - If the user only mentions the source ("I'm at MM, how can I get there later?"),
            set source_building_raw = "MM" and keep target_building_raw empty so the flow
            can ask for the destination.
-
+  
       2) After the raw slots are filled, the flow calls action_get_route_description.
          - This custom action:
            - reads source_building_raw and target_building_raw,
            - normalizes them with the building documentation and an LLM,
-           - calls an internal routing API (Google Maps) for walking directions,
+           - calls an internal routing API (Google Maps) for directions
+             (walking, bicycling, driving, or transit depending on travel_mode_hint),
            - and returns a short, readable explanation to the user.
          - The patterns do NOT need to perform any extra search or normalization.
-
+  
       DECIDING SOURCE VS TARGET:
       - For phrases like "from A to B":
         source_building_raw = A, target_building_raw = B.
@@ -589,7 +590,7 @@ patterns:
         - If there was a previous route from A to B in this conversation, then a follow-up
           "How do I get back to A?" should swap the buildings:
           source_building_raw = previous target, target_building_raw = previous source.
-
+  
       FOUR COMMON PHRASING CASES:
       1) The outward trip is mentioned explicitly:
          - "from A to B"
@@ -610,17 +611,17 @@ patterns:
            (for example the Central Student Desk in the Berchmanianum), you may treat
            that destination as the current target_building_raw even if the user did not
            type the building name again.
-
+  
       If you cannot clearly decide, still set the buildings based on the most
       likely reading of the user's message, but never fabricate buildings that
       were not mentioned or clearly referred to.
-
+  
       WHEN NOT TO USE ROUTE_DESCRIPTION_FLOW:
-      - If the question is primarily about public transport lines or which
-        bus/train to take to campus, prefer public_transport_flow.
+      - If the question is primarily about public transport INFORMATION (e.g. which line,
+        closest stop/station, bus stop near X), prefer public_transport_flow.
       - If the user is only asking for opening hours or what is inside
         a building, use the existing thematic flows or pattern_search instead.
-
+  
       SLOT SETTING EXPECTATIONS:
       - For every route or travel-time request, fill:
         - source_building_raw and target_building_raw from the user's wording or,
@@ -638,26 +639,28 @@ patterns:
       - Only ask for a missing building via utter_ask_source_building_raw or
         utter_ask_target_building_raw when the user truly did NOT mention that
         building in any previous turn.
-
+  
       TRAVEL MODE HINT:
       - Always set the slot travel_mode_hint to the user's preferred mode if they clearly mention it:
         - Words like "on foot", "by foot", "walking", "walk" → travel_mode_hint = "walk".
         - Words like "by bike", "bicycle", "cycling", "fiets" → travel_mode_hint = "bike".
-        - Words like "by car", "with my car", "drive" → travel_mode_hint = "car".
-        - Words like "public transport", "bus", "train", "OV", "NS", "Arriva",
-          "station", "bus stop" → travel_mode_hint = "public_transport".
+        - Words like "by car", "with my car", "drive", "met de auto" → travel_mode_hint = "car".
+        - Words like "by bus", "by train", "public transport", "OV", "NS", "Arriva"
+          AND the user is asking for a route from A to B → travel_mode_hint = "transit".
+        - Words like "which bus", "which train", "closest station", "bus stop near",
+          "nearest stop", "which OV" → travel_mode_hint = "public_transport_info".
       - If the user only mentions campus buildings and does NOT mention any mode
-        (no walking/cycling words and no OV words, e.g. "How do I get to EOS?"),
+        (no walking/cycling/car words and no transit/OV words, e.g. "How do I get to EOS?"),
         you MUST set travel_mode_hint = "unknown" and prefer
         travel_mode_clarification_flow to ask the user for their preference.
       - If the user only says vague speed words like "as fast as possible",
         "as quickly as possible", "zo snel mogelijk", without naming a mode
-        such as walk/bike/bus/car, this is NOT a clear mode:
+        such as walk/bike/bus/train/car, this is NOT a clear mode:
         → set travel_mode_hint = "unknown" so the assistant will ask which mode they prefer.
       - If you really cannot tell the mode from the wording, set travel_mode_hint = "unknown".
-
+  
        VERY CONCRETE SLOT ASSIGNMENT EXAMPLES
-
+  
       1) Example: "How do I get from EOS to Aesculaaf?"
          - intent: ask_route_description
          - slots MUST be:
@@ -666,7 +669,7 @@ patterns:
            - travel_mode_hint = "unknown"
          - Because both buildings are present, you MUST NOT ask
            "Where are you now?" in this turn.
-
+  
       2) Example: "Hey, how do I get from Huygens to the library by bike?"
          - intent: ask_route_description
          - slots MUST be:
@@ -674,7 +677,7 @@ patterns:
            - target_building_raw = "the library"
            - travel_mode_hint = "bike"
          - Do NOT ask again for the buildings; they are already known.
-
+  
       3) Example: "How do I get to EOS?"
          - intent: ask_route_description
          - slots MUST be:
@@ -683,7 +686,7 @@ patterns:
            - travel_mode_hint = "unknown"
          - Because the origin is missing, it is correct that the flow will
            later ask: "Where are you now?".
-
+  
       4) Example: "I am at MM, how can I get there later?"
          - If there is no previous destination in context:
            - intent: ask_route_description
@@ -696,7 +699,7 @@ patterns:
            to B, then:
              - source_building_raw = "MM"
              - target_building_raw = previous target building.
-
+  
       5) Example follow-up: after a route from EOS to Aesculaaf,
          the user says: "And how do I get back?"
          - intent: ask_route_description
@@ -704,16 +707,16 @@ patterns:
            - source_building_raw = prev_target_building_raw (here: "Aesculaaf")
            - target_building_raw = prev_source_building_raw (here: "EOS")
            - travel_mode_hint = "unknown" (unless a mode is clearly stated)
-
+  
       These examples are binding: when the user message matches one of these
       patterns, you MUST set the slots exactly as shown.
-
+  
 
   travel_mode_clarification_patterns:
     description: |
       This section explains when to use **travel_mode_clarification_flow** to
-      ask the user whether they want to WALK/CYCLE or use PUBLIC TRANSPORT.
-
+      ask the user whether they want to WALK/CYCLE/CAR or use PUBLIC TRANSPORT (TRANSIT).
+  
       WHEN TO USE THIS FLOW:
       - The user asks how to get to or from one or more campus buildings,
         but does NOT clearly specify a travel mode.
@@ -721,109 +724,126 @@ patterns:
         - "How do I get to EOS?"
         - "How do I get from MM to Huygens?"
         - "What is the best way to go from GR to EOS?"
-      - In these cases, you MUST NOT guess the mode (walk vs OV).
+      - In these cases, you MUST NOT guess the mode.
         Instead, start travel_mode_clarification_flow so the assistant can ask:
-        "Do you want to walk, cycle, or use public transport (bus/train)?"
-
+        "Do you want to walk, cycle, go by car, or use public transport (bus/train)?"
+  
       SLOT BEHAVIOUR:
       - Before asking about the travel mode, this flow should silently fill
         source_building_raw and target_building_raw from the current user
         message wherever possible (no extra questions).
       - Then the flow collects the travel_mode_hint slot explicitly.
-      - The user’s answer (e.g. "by foot", "by bike", "by bus") should update:
-        - travel_mode_hint = "walk" / "bike" / "public_transport" as appropriate.
-      - After this flow ends, a short follow-up like "by foot" or "by bus"
+      - The user’s answer (e.g. "by foot", "by bike", "by car", "by bus") should update:
+        - travel_mode_hint = "walk" / "bike" / "car" / "transit" as appropriate.
+      - After this flow ends, a short follow-up like "by foot" / "by bus"
         will allow the next turn to go directly to:
-        - route_description_flow when travel_mode_hint is "walk" or "bike".
-        - public_transport_flow when travel_mode_hint is "public_transport".
-
+        - route_description_flow when travel_mode_hint is "walk", "bike", "car" or "transit".
+  
       RELATION TO OTHER FLOWS:
       - If the user already clearly specified a mode in the original question
-        ("How do I walk from MM to Huygens?", "Which bus to EOS?"), do NOT use
-        travel_mode_clarification_flow; go directly to the matching flow.
+        ("How do I walk from MM to Huygens?", "How do I get from Nijmegen Centraal to EOS by train?"),
+        do NOT use travel_mode_clarification_flow; go directly to route_description_flow.
+      - If the user asks for OV info instead of a route ("Which bus line to EOS?", "closest station"),
+        do NOT use travel_mode_clarification_flow; use public_transport_flow.
       - If the user changes their mind, for example:
-        - First: "Which bus should I take to EOS?" → public_transport_flow.
+        - First: "Which bus line should I take to EOS?" → public_transport_flow.
         - Then: "I mean by foot." → treat the new message as a fresh query:
           travel_mode_hint = "walk" and use route_description_flow.
 
   public_transport_patterns:
     description: |
       This section describes how to recognise questions about public
-      transport (OV) to, from and around campus and map them to the
+      transport INFORMATION (OV info) to, from and around campus and map them to the
       appropriate flow.
-
-      WHAT COUNTS AS A "PUBLIC TRANSPORT" QUESTION
-
-      Treat an utterance as public-transport-related when users:
-      - Explicitly talk about trains, buses, trams, OV, NS, Arriva:
-        - "How do I get to campus by train?"
+  
+      WHAT COUNTS AS A "PUBLIC TRANSPORT INFO" QUESTION
+  
+      Treat an utterance as public-transport-info-related when users:
+      - Ask which bus/train/tram line to take, without asking for a full step-by-step route:
         - "Which bus should I take to EOS?"
-        - "Is there a bus stop near the UB?"
-      - Mention stations and stops:
-        - Nijmegen Centraal, Nijmegen Heyendaal, Heyendaalseweg stop,
-          Huygens building bus stop, UMC bus stop, etc.
-      - Ask how to get from a station to a campus building:
-        - "How do I get from Nijmegen Central to Huygens?"
-        - "What is the nearest station for Grotius?"
-      - Ask explicitly for "public transport" or "OV" without naming
-        trains or buses individually.
-
+        - "Which bus line goes to the UB?"
+        - "What OV should I use to get to campus?"
+      - Ask about stations and stops near a building:
+        - "Which station is closest to Huygens?"
+        - "Is there a bus stop near the University Library?"
+      - Ask generally for the nearest stop/station for a campus location.
+  
       DECISION LOGIC AND PRIORITY:
-
-      - If the main focus is WHICH STATION / STOP / GENERAL OV ROUTE:
+  
+      - If the main focus is WHICH STATION / STOP / LINE / GENERAL OV INFO:
         → use public_transport_flow.
-      - You should ONLY choose public_transport_flow when the user
-        explicitly mentions public transport concepts such as:
+      - You should ONLY choose public_transport_flow when the user’s intent is clearly
+        informational and they explicitly mention public transport concepts such as:
         - train, bus, tram, OV, NS, Arriva,
         - station, stop, bus stop, platform, line/route numbers,
-        - "public transport" or "OV".
+        - "public transport" or "OV",
+        AND they are not primarily requesting a step-by-step transit route.
+  
+      RELATION TO TRANSIT ROUTES (IMPORTANT):
+  
+      - If the user asks for a step-by-step transit route between two places,
+        especially with "from A to B" phrasing (e.g. "How do I get from Nijmegen Centraal to Huygens by train?"):
+        → do NOT use public_transport_flow.
+        → use route_description_flow with travel_mode_hint = "transit".
       - If the user only says "How do I get to <building>?" or
         "How do I get from <building A> to <building B>?" without any
-        explicit public transport words, do NOT guess OV:
-        → prefer travel_mode_clarification_flow first, then route_description_flow
-          or public_transport_flow once travel_mode_hint is known.
-      - Do NOT use this flow for detailed walking directions between
-        two campus buildings (e.g. "How do I walk from MM to Huygens?").
-        Those should be handled by route_description_flow.
-
-      TRAVEL MODE HINT FOR PUBLIC TRANSPORT:
-
+        explicit mode words, do NOT guess:
+        → prefer travel_mode_clarification_flow first.
+  
+      TRAVEL MODE HINT FOR PUBLIC TRANSPORT INFO:
+  
       - Whenever you decide that public_transport_flow is appropriate,
-        you MUST set travel_mode_hint = "public_transport".
+        you MUST set travel_mode_hint = "public_transport_info".
       - Example mappings:
-        - "Which bus should I take to EOS?" → travel_mode_hint = "public_transport".
-        - "How do I get from Nijmegen Centraal to Huygens by train?"
-          → travel_mode_hint = "public_transport".
+        - "Which bus line should I take to EOS?" → travel_mode_hint = "public_transport_info".
+        - "Which station is closest to Huygens?" → travel_mode_hint = "public_transport_info".
       - If the user later corrects themselves with something like
-        "I mean by foot" or "I want to walk", the new message should
-        update travel_mode_hint to "walk" and be routed to
-        route_description_flow instead.
-
-      RELATION TO ROUTE DESCRIPTION:
-
+        "I mean by foot" / "I want to walk" / "I need the route by train from A to B",
+        the new message should update travel_mode_hint accordingly ("walk" or "transit")
+        and be routed to route_description_flow instead.
+  
+      MIXED QUESTIONS:
+  
       - Mixed questions can happen, for example:
-        - "How do I get from Nijmegen Central to EOS and then walk to MM?"
+        - "Which bus goes to EOS, and how do I walk from the stop to MM?"
       - In such cases, choose the flow that best matches the *first or main*
         request in the user's message:
-        - If they primarily talk about the train/bus part, prefer public_transport_flow.
-        - If they primarily talk about the on-campus walking part, prefer
-          route_description_flow (possibly after travel_mode_clarification_flow).
-      - The assistant must not give live departure times or delays,
-        only general routes and typical stops as described in the docs.
-
+        - If they primarily ask which line/stop/station: prefer public_transport_flow.
+        - If they primarily ask for step-by-step directions: prefer route_description_flow.
+  
       STATE CLEANUP:
       - After public_transport_flow has answered, the custom action
         action_clear_route_context resets travel_mode_hint to "unknown"
         and clears source_building_raw and target_building_raw, so later
         messages start from a fresh route context.
-
+  
       EXAMPLES (→ public_transport_flow)
-
+  
       - "Which station is closest to Huygens?"
       - "Is there a bus stop near the University Library?"
-      - "How do I get from Nijmegen Central to campus?"
       - "Which bus line should I take to EOS?"
       - "What OV should I use to get from the city centre to MM?"
+
+  mode_switch_patterns:
+    description: |
+      Use mode_switch_flow when the user sends a SHORT follow-up that ONLY changes the travel mode
+      for the previous route, without repeating the origin/destination.
+
+      Typical examples:
+      - "by bus"
+      - "by train"
+      - "public transport"
+      - "ov"
+      - "met de bus"
+      - "met ov"
+      - "and by bus?"
+
+      This is NOT a new route request; it is a re-run of the last route in a different mode.
+
+      Decision rules:
+      - If the message is a pure mode switch (bus/train/ov/public transport) -> mode_switch_flow.
+      - If the user asks public transport INFO (e.g. "which bus", "closest stop", "which line") -> public_transport_flow instead.
+      - If they switch to "by bike" / "on foot" / "by car", mode_switch_flow is still correct (it should reuse the last route).
 
   # ---------------------------------------------------------------------------
   # OPENING HOURS, OTHER FACILITIES, STUDY SPOTS

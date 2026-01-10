@@ -343,5 +343,110 @@
     "longitude": 5.8647555,
     "latitude": 51.8214573,
     "venues": []
+  },
+  {
+    "name": "Amsterdam Centraal Station",
+    "address": "Amsterdam Centraal Station, Amsterdam, Netherlands",
+    "longitude": 4.900272,
+    "latitude": 52.378000,
+    "venues": []
+  },
+  {
+    "name": "Utrecht Centraal Station",
+    "address": "Utrecht Centraal Station, Utrecht, Netherlands",
+    "longitude": 5.110000,
+    "latitude": 52.089000,
+    "venues": []
+  },
+  {
+    "name": "Rotterdam Centraal Station",
+    "address": "Rotterdam Centraal Station, Rotterdam, Netherlands",
+    "longitude": 4.469000,
+    "latitude": 51.924000,
+    "venues": []
+  },
+  {
+    "name": "Den Haag Centraal Station",
+    "address": "Den Haag Centraal Station, The Hague, Netherlands",
+    "longitude": 4.324000,
+    "latitude": 52.080000,
+    "venues": []
+  },
+  {
+    "name": "Eindhoven Centraal Station",
+    "address": "Eindhoven Centraal Station, Eindhoven, Netherlands",
+    "longitude": 5.478000,
+    "latitude": 51.441000,
+    "venues": []
+  },
+  {
+    "name": "Arnhem Centraal Station",
+    "address": "Arnhem Centraal Station, Arnhem, Netherlands",
+    "longitude": 5.898000,
+    "latitude": 51.984000,
+    "venues": []
+  },
+  {
+    "name": "Groningen Station",
+    "address": "Groningen Station, Groningen, Netherlands",
+    "longitude": 6.564000,
+    "latitude": 53.211000,
+    "venues": []
+  },
+  {
+    "name": "Zwolle Station",
+    "address": "Zwolle Station, Zwolle, Netherlands",
+    "longitude": 6.091000,
+    "latitude": 52.504000,
+    "venues": []
+  },
+  {
+    "name": "Maastricht Station",
+    "address": "Maastricht Station, Maastricht, Netherlands",
+    "longitude": 5.705000,
+    "latitude": 50.849000,
+    "venues": []
+  },
+  {
+    "name": "Leiden Centraal Station",
+    "address": "Leiden Centraal Station, Leiden, Netherlands",
+    "longitude": 4.482000,
+    "latitude": 52.166000,
+    "venues": []
+  },
+  {
+    "name": "Breda Station",
+    "address": "Breda Station, Breda, Netherlands",
+    "longitude": 4.780000,
+    "latitude": 51.595000,
+    "venues": []
+  },
+  {
+    "name": "'s-Hertogenbosch Station",
+    "address": "'s-Hertogenbosch Station, 's-Hertogenbosch, Netherlands",
+    "longitude": 5.294000,
+    "latitude": 51.690000,
+    "venues": []
+  },
+  {
+    "name": "Amersfoort Centraal Station",
+    "address": "Amersfoort Centraal Station, Amersfoort, Netherlands",
+    "longitude": 5.369000,
+    "latitude": 52.156000,
+    "venues": []
+  },
+  {
+    "name": "Haarlem Station",
+    "address": "Haarlem Station, Haarlem, Netherlands",
+    "longitude": 4.6386508,
+    "latitude": 52.3880669,
+    "venues": []
+  },
+  {
+    "name": "Schiphol Airport Station",
+    "address": "Schiphol Airport Station, Schiphol, Netherlands",
+    "longitude": 4.762198,
+    "latitude": 52.308039,
+    "venues": []
   }
 ]
