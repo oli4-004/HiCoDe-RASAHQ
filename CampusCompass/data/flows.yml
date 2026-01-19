@@ -49,23 +49,50 @@ flows:
       - action: utter_goodbye
         next: END
 
+  thanks_decline_flow:
+    description: |
+      Handles messages that BOTH thank the bot and explicitly decline further help,
+      e.g. "Not really, thanks", "No thanks", "Nothing else, thanks".
+      
+      Behaviour:
+      - one short friendly closing line
+      - do NOT ask "anything else?"
+      - end immediately
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: utter_thanks_decline
+        next: END
+
   thanks_flow:
     description: |
-      Handles simple expressions of gratitude that do not clearly end
-      the conversation.
-      Typical user messages:
-      - "thanks", "thank you", "dankjewel", "super, thanks"
-      - "nice, that helps", "ok great"
+      Handles PURE gratitude where the user is happy with the answer but
+      has not ended the conversation.
+
+      Typical examples:
+      - "thanks", "thank you", "dankjewel", "super thanks"
+      - "nice, that helps", "great, thanks", "perfect!"
+
       Use this flow when:
-      - the user is thanking CampusCompass for help
-      - but they have not clearly indicated that they are leaving
-        (no "bye", "that is all", etc.).
+      - the message is primarily gratitude/positive acknowledgement, AND
+      - the user does NOT explicitly decline further help, AND
+      - the user does NOT say goodbye / end the conversation.
+
+      IMPORTANT: NOT THIS FLOW
+      - If the user declines further help:
+        "not really", "no", "no thanks", "nothing else", "that's all"
+        -> use a decline/thanks-decline flow instead.
+      - If the user says goodbye:
+        "bye", "goodbye", "doei", "see you"
+        -> goodbye_flow.
+      - If the user includes a new campus question in the same message:
+        -> use the relevant content flow, not thanks_flow.
+
       Behaviour:
-      - briefly acknowledge the thanks
-      - optionally offer further help with one short line such as
+      - Briefly acknowledge the thanks.
+      - Optionally ask one short follow-up prompt:
         "Is there anything else I can help you with?"
-      Do not re-explain previous answers or start new topics here; just
-      keep it as a polite acknowledgement.
+      - Do not re-explain or start new topics.
     steps:
       - set_slots:
           - fallback_attempts: 0

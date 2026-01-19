@@ -1846,7 +1846,7 @@ patterns:
           opening_hours_flow, etc.), not to mental_health_light_flow or mental_health_severe_flow.
 
   # ---------------------------------------------------------------------------
-  # DECLINE (DETERMINISTIC)
+  # DECLINE AND THANKS (DETERMINISTIC)
   # ---------------------------------------------------------------------------
   decline_help_patterns:
     description: |
@@ -1880,3 +1880,51 @@ patterns:
       - Give one short, polite closing line.
       - Do NOT ask follow-up questions.
       - End immediately.
+
+  thanks_decline_patterns:
+    description: |
+      Start: thanks_decline_flow
+
+      Use this when the user both expresses gratitude AND declines further help.
+
+      Typical examples:
+      - "not really, thanks"
+      - "no thanks"
+      - "nope, thanks"
+      - "nothing else thanks"
+      - "that's all, thanks"
+      - "all good, thanks"
+      - "I'm good, thanks"
+
+      Important:
+      - If the message contains a new campus request/question, do NOT use this flow.
+
+  thanks_patterns:
+    description: |
+      Start: thanks_flow
+
+      Route here when the user expresses gratitude or positive acknowledgement
+      WITHOUT declining further help and WITHOUT saying goodbye.
+
+      Examples (YES -> thanks_flow):
+      - "thanks"
+      - "thank you"
+      - "much appreciated"
+      - "super thanks"
+      - "nice, that helps"
+      - "perfect, thanks!"
+
+      IMPORTANT NEGATIVE EXAMPLES (NO -> thanks_flow):
+      - Decline + thanks (use thanks_decline_flow):
+        - "not really, thanks"
+        - "no thanks"
+        - "nothing else, thanks"
+        - "that's all, thanks"
+      - Goodbye + thanks (use goodbye_flow):
+        - "thanks, bye"
+        - "ok bye"
+        - "doei, bedankt"
+      - Thanks + new campus request (use relevant content flow):
+        - "thanks — where is EOS?"
+        - "great, and how do I get to MM?"
+

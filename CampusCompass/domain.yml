@@ -101,6 +101,9 @@ responses:
   utter_decline_help:
     - text: "Alright. No problem! Have a good day on campus 👋"
 
+  utter_thanks_decline:
+    - text: "No problem! Glad I could help. Have a good day on campus 👋"
+
   # ---------------------------------------------------------------------------
   # Mental health issues (mental_health_*_flow)
   # ---------------------------------------------------------------------------
