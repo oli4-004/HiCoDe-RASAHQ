@@ -1131,6 +1131,9 @@ patterns:
         walking/cycling/car/transit or OV-info ("How do I get to EOS?"):
         → start travel_mode_clarification_flow first, so the assistant can ask
           whether they prefer walking/cycling/car or public transport.
+      - If the user is referring to the last route ("there/that/same route") and only changes mode
+        ("by bike", "walking then", "can I go there cycling then?"):
+        -> mode_switch_flow (reuse prev_*), not fallback_flow.
   
       RAW BUILDING SLOTS:
       - source_building_raw and target_building_raw:
@@ -1445,26 +1448,31 @@ patterns:
 
   mode_switch_patterns:
     description: |
-      Use mode_switch_flow when the user sends a SHORT follow-up that ONLY changes the travel mode
-      for the previous route, without repeating the origin/destination.
+      Start: mode_switch_flow
+
+      Use mode_switch_flow when the user’s message mainly means:
+      "Re-run the LAST route, but change only the travel mode."
   
-      Typical examples:
-      - "by bus"
-      - "by train"
-      - "public transport"
-      - "ov"
-      - "met de bus"
-      - "met ov"
+      This includes very short AND longer follow-ups, especially with referring language:
+      - "by bike"
+      - "walk!"
+      - "by car then"
       - "and by bus?"
+      - "same route but walking"
+      - "can I go there cycling then?"
+      - "could you do that by train instead?"
+      - "what about by public transport?"
   
-      This is NOT a new route request; it is a re-run of the last route in a different mode.
+      Key signals:
+      - Mentions a mode (walk/bike/car/bus/train/ov/public transport)
+      - Uses "there / that / same route / then / instead"
+      - Does NOT restate a new explicit A→B pair
   
       Decision rules:
-      - If the message is a pure mode switch (bus/train/ov/public transport) -> mode_switch_flow.
-      - If the user asks public transport INFO (e.g. "which bus", "closest stop", "which line") -> public_transport_flow instead.
-      - If they switch to "by bike" / "on foot" / "by car", mode_switch_flow is still correct (it should reuse the last route).
-      - If the user asks WHICH option is fastest / quickest (a comparison), for example "is walking the quickest?",
-        do NOT use mode_switch_flow; use fastest_route_flow.
+      - Pure mode switch (walk/bike/car/transit) -> mode_switch_flow.
+      - If the user asks PUBLIC TRANSPORT INFO ("which bus", "which line", "closest stop/station") -> public_transport_flow.
+      - If they ask WHICH option is fastest/quickest -> fastest_route_flow.
+      - If they provide a NEW explicit A→B route in the same message -> route_description_flow instead.
   
 
   fastest_route_patterns:
@@ -1491,7 +1499,10 @@ patterns:
       Non-examples (use route_description_flow instead):
       - "Give me walking directions from HG to COM."
       - "Directions to Berchmanianum by car."
-
+      
+      Follow-up after a fastest-route answer:
+      - "Ok cycling then" / "Then walking please" / "By bike then"
+      -> mode_switch_flow (same A→B, new mode), not fallback_flow.
 
   # ---------------------------------------------------------------------------
   # OPENING HOURS, OTHER FACILITIES, STUDY SPOTS
@@ -1687,15 +1698,38 @@ patterns:
       - "Can I study in Huygens if I am not a science student?"
 
   # ---------------------------------------------------------------------------
-  # SMALLTALK & MENTAL HEALTH SAFETY
+  # SMALLTALK & FALLBACK & MENTAL HEALTH SAFETY
   # ---------------------------------------------------------------------------
+
+  fallback_patterns:
+    description: |
+      Start: fallback_flow
+
+      Use fallback_flow only for input that is truly unclear or not answerable as a campus request,
+      even after clarification attempts.
+
+      Typical examples:
+      - random keyboard noise / repeated nonsense strings
+      - repeated unknown codes after the bot already said it cannot find them
+      - clearly non-campus questions outside scope
+
+      IMPORTANT: When NOT to use fallback_flow
+      Do NOT send these to fallback_flow:
+      - Mode-switch follow-ups after a route or fastest-route answer:
+        "Can I go there cycling then?", "Ok by bike", "Same route but walking"
+        -> mode_switch_flow
+      - Short route follow-ups that still mean "give directions":
+        "How do I get there?", "Show me the route"
+        -> route_description_flow / travel_mode_clarification_flow
+      - Campus questions that are just broadly phrased:
+        -> pattern_search (not fallback)
 
   smalltalk_patterns:
     description: |
       This section explains how to recognise off-topic smalltalk and route
       it to smalltalk_flow (or, when triggered by Rasa repair logic,
       to pattern_chitchat).
-      
+  
       WHAT COUNTS AS SMALLTALK:
       - Short emotional reactions without a campus task:
         - "lol", "haha", "hahaha", "omg", "wow", "nice", "cool"
@@ -1705,7 +1739,17 @@ patterns:
         - "tell me something random", "tell me a joke"
       - Meta comments about the conversation:
         - "this is weird", "you are surprisingly helpful", "ok cool 👍"
-      
+  
+      IMPORTANT: WHAT IS NOT SMALLTALK (keyboard smashes / noise)
+      - Random character sequences, repeated letters, or "keyboard smash"
+        messages are NOT smalltalk, even if they look playful.
+        Examples:
+        - "wieojfoiewhgoiewhg"
+        - "asdfghjkl"
+        - "HHHHHHHHHHHHHHHHH"
+        - "!!!!!!!!!"
+      - These must be routed to fallback_flow (unclear input), not smalltalk_flow.
+  
       CONDITIONS FOR smalltalk_flow:
       - The message does NOT contain a concrete campus request:
         - no "where is X", "how do I get to Y", "when is Z open"
@@ -1713,7 +1757,7 @@ patterns:
         - no explicit abbreviation question ("what does EOS mean?")
       - The message is NOT primarily about identity:
         - pure "who are you" or "what can you do" goes to identity_flow.
-      
+  
       IMPORTANT NEGATIVE EXAMPLES (SHOULD NOT USE smalltalk_flow):
       - Mixed smalltalk + campus request:
         - "lol I am lost, how do I get to MM?"
@@ -1723,7 +1767,9 @@ patterns:
       - Campus content disguised as a joke:
         - "haha, where can I get coffee near UB?"
         → still a food_and_drink_flow question.
-      
+      - Keyboard smashes / noise (see above):
+        → fallback_flow.
+  
       BEHAVIOUR:
       - For pure smalltalk, use smalltalk_flow:
         - first run action_smalltalk_llm for one short, friendly sentence
@@ -1732,7 +1778,7 @@ patterns:
           is for campus help.
       - When Rasa’s pattern_chitchat override is triggered instead,
         it should behave similarly but only send utter_free_chitchat_response.
-      
+  
       If the user continues with a concrete campus question after smalltalk,
       subsequent turns should use the normal content flows again.
 
@@ -1798,3 +1844,39 @@ patterns:
           or clearly talks about being in mental crisis.
         - These cases should go to normal campus flows (pattern_search, other_facilities_flow,
           opening_hours_flow, etc.), not to mental_health_light_flow or mental_health_severe_flow.
+
+  # ---------------------------------------------------------------------------
+  # DECLINE (DETERMINISTIC)
+  # ---------------------------------------------------------------------------
+  decline_help_patterns:
+    description: |
+      Start: decline_help_flow
+
+      Use this when the user politely declines further help and is essentially done,
+      usually as a direct response to "Is there anything else I can help you with?".
+
+      Typical examples:
+      - "not really"
+      - "no"
+      - "nope"
+      - "nah"
+      - "nothing else"
+      - "that's all"
+      - "all good"
+      - "I'm good"
+      - "no thanks"
+
+      Decision rules (IMPORTANT):
+      - Use this only when the message is a pure decline / closing signal.
+      - If the message contains ANY new campus request or question, do NOT use this.
+        Examples that must NOT go here:
+        - "not really, but where is EOS?"
+        - "no, how do I get to MM?"
+        - "nah — what are the opening hours?"
+      - If the message is unclear noise/keyboard smash, use fallback_flow instead.
+      - If the message is a clear goodbye ("bye", "doei"), prefer goodbye_flow.
+
+      Behaviour:
+      - Give one short, polite closing line.
+      - Do NOT ask follow-up questions.
+      - End immediately.

@@ -138,7 +138,7 @@ class LLMController:
             return None
 
     # ---------------------------------------------------------------------
-    # SMALLTALK REPLY
+    # SMALLTALK, ACKNOWLEDGEMENT AND FALLBACK REPLY
     # ---------------------------------------------------------------------
 
     def smalltalk_reply(self, user_text: str) -> str:
@@ -178,6 +178,116 @@ class LLMController:
 
         if not text:
             return fallback_reply
+        return text
+
+    def acknowledgement_reply(self, history_snippet: str) -> str:
+        """
+        Generate ONE short, friendly acknowledgement when the user reacts to the
+        previous answer (no new question). May reference wording from the snippet.
+        No follow-up questions.
+        """
+        snippet = _clean(history_snippet or "")
+        fallback_reply = "Got it — good luck! 😊"
+
+        if not self.client or not snippet:
+            return fallback_reply
+
+        system_msg = (
+            "You are CampusCompass, a friendly but focused campus assistant at Radboud University Nijmegen.\n"
+            "The user is reacting to the previous answer (e.g., confirming, acknowledging, saying they will go there later),\n"
+            "but they are NOT asking a new question.\n"
+            "Reply with ONE short, friendly sentence.\n"
+            "\n"
+            "Rules:\n"
+            "- Do NOT ask follow-up questions.\n"
+            "- Do NOT give new factual campus info.\n"
+            "- You MAY echo a building name ONLY if it appears in the snippet.\n"
+            "- At most one emoji.\n"
+            "- Max ~20 words.\n"
+        )
+
+        user_msg = f"CONVERSATION_SNIPPET:\n{snippet}"
+
+        text = self._chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            model="gpt-4o-mini",
+            temperature=0.3,
+            max_completion_tokens=60,
+        )
+
+        return (text or "").strip() or fallback_reply
+
+    # ---------------------------------------------------------------------
+    # FALLBACK: CONTEXTUAL "CANNOT HANDLE" MESSAGE (LLM)
+    # ---------------------------------------------------------------------
+    def cannot_handle_fallback(self, history_snippet: str) -> str:
+        """
+        Use an LLM call to produce a short, polite cannot-handle message that
+        references what the user asked (no "this issue").
+
+        Returns a single string (English), 1–2 sentences.
+        """
+
+        fallback = (
+            "I’m sorry. I can’t help with that request right now."
+        )
+
+        snippet = _clean(history_snippet or "")
+        if not snippet or not self.client:
+            return fallback
+
+        system_msg = (
+            "You are CampusCompass, a focused campus assistant at Radboud University Nijmegen.\n"
+            "You must write a short fallback message when you cannot answer the user's request.\n"
+            "\n"
+            "CRITICAL RULES:\n"
+            "- Output MUST be valid JSON on a single line: {\"text\":\"...\"}\n"
+            "- The text MUST explicitly connect to what the user asked, using the user's own wording if possible.\n"
+            "- NEVER say 'this issue'.\n"
+            "- Do NOT ask follow-up questions.\n"
+            "- Do NOT mention documents, knowledge base, sources, internal tools, policies, or limitations.\n"
+            "- Do NOT invent facts.\n"
+            "- 1–2 sentences total.\n"
+            "- English only.\n"
+            "\n"
+            "Examples:\n"
+            "- If user asks an unknown abbreviation: say you don't recognise that abbreviation.\n"
+            "- If user asks about an unknown building: say you can't find that location.\n"
+            "- If user input is gibberish: say you couldn't understand the message.\n"
+        )
+
+        user_msg = (
+            "CONVERSATION_SNIPPET:\n"
+            f"{snippet}\n\n"
+            "Return JSON now."
+        )
+
+        raw = self._chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            model="gpt-4o-mini",
+            temperature=0.0,
+            max_completion_tokens=120,
+        )
+
+        if not raw:
+            return fallback
+
+        # strict parse + validate
+        try:
+            obj = json.loads(raw.strip())
+            text = (obj.get("text") or "").strip()
+        except Exception:
+            return fallback
+
+        if not text:
+            return fallback
+
         return text
 
     # ---------------------------------------------------------------------

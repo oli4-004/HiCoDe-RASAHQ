@@ -70,7 +70,44 @@ flows:
       - set_slots:
           - fallback_attempts: 0
       - action: utter_reply_thanks
+      - action: utter_anything_else
         next: END
+
+  decline_help_flow:
+    description: |
+      Handles polite declines / conversation closers where the user indicates
+      they do not need more help, without necessarily saying "bye".
+
+      Typical user messages:
+      - "not really"
+      - "no"
+      - "nope"
+      - "nah"
+      - "nothing else"
+      - "that's all"
+      - "I'm good"
+      - "all good"
+      - "no thanks"
+
+      Use this flow when:
+      - the user is responding to "Is there anything else I can help you with?"
+        or otherwise signalling they are done,
+      - and they are NOT asking a new campus question.
+
+      Behaviour:
+      - send one short closing line
+      - do NOT ask follow-up questions
+      - end the turn immediately
+
+      IMPORTANT:
+      - If the message contains a new campus request (e.g. "no, but where is EOS?")
+        this flow must NOT be used; route to the relevant content flow instead.
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: utter_decline_help
+        next: END
+
 
   mental_health_severe_flow:
     description: |
@@ -126,6 +163,45 @@ flows:
           - fallback_attempts: 0
       - action: utter_light_mental_health_support
         next: END
+
+  # ---------------------------------------------------------------------------
+  # ACKNOWLEDGEMENT FLOW
+  # ---------------------------------------------------------------------------
+
+  acknowledgement_followup_flow:
+    description: |
+      Handles short acknowledgements / confirmations / plans that refer to the
+      previous answer, without asking a new question yet.
+
+      Typical examples:
+      - "Ah great!"
+      - "Nice, I have a lecture there later."
+      - "Okay, I'm going there soon."
+      - "Good to know, thanks — I’ll be there later."
+
+      Use this flow when:
+      - the user is not asking for new information (no question),
+      - but they clearly react to or build on the previous campus answer,
+        often mentioning "there" / "that building" / "later" / "soon".
+
+      IMPORTANT: NOT THIS FLOW
+      - Do not use this for keyboard smashes / noise -> fallback_flow.
+      - Do not use this when the user is actually asking a route, opening hours,
+        or anything factual -> use the relevant content flow.
+
+      Behaviour:
+      - Give one short friendly acknowledgement.
+      - Offer one concrete next-step prompt:
+        - directions (from where to where), or
+        - room code interpretation, if they have it.
+      - Do not start search or maps calls.
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_acknowledgement_llm
+      - action: utter_anything_else
+        next: END
+
 
   # ---------------------------------------------------------------------------
   # CONTEXT-INCLUDED FLOWS
@@ -1871,20 +1947,20 @@ flows:
       Handle off-topic smalltalk and light social reactions, where the
       main purpose of the message is casual conversation rather than a
       campus question.
-
+  
       Typical examples:
       - short emotional reactions: "lol", "haha", "nice", "wow", "ok cool"
       - social remarks: "you are funny", "I like this bot"
       - non-campus chitchat: "how is your day", "tell me something random"
         (as long as there is no concrete campus request in the same turn).
-
+  
       Use this flow only when:
       - the message does NOT contain a clear request for directions,
         building or room abbreviations, opening hours, or other campus facts
       - the message is NOT primarily about the bot's identity or purpose,
         such as "who are you" or "what can you do" (those belong in
         identity_flow or pattern_search).
-
+  
       IMPORTANT:
       - If smalltalk is mixed with a clear campus request
         (for example "lol I am lost, how do I get to MM?"), this flow should
@@ -1892,7 +1968,14 @@ flows:
         one of the thematic flows) should handle the turn instead.
       - smalltalk_flow itself should not answer campus questions; it only
         provides a brief friendly chitchat-style response.
-
+  
+      IMPORTANT: NOT SMALLTALK (keyboard smashes / noise)
+      - Do NOT use this flow for random character sequences, repeated letters,
+        or "keyboard smash" messages (e.g. "wieojfoiewhgoiewhg", "asdfghjkl",
+        "HHHHHHHHHHHHH", "!!!!!!!!!").
+      - Those are not social smalltalk; they are unclear input and must be
+        handled by fallback_flow instead.
+  
       Implementation details:
       - First, call a small LLM-driven action (action_smalltalk_llm) that
         returns ONE short, friendly sentence which acknowledges what the
@@ -1953,15 +2036,36 @@ flows:
     description: |
       Handles inputs that the bot cannot reliably interpret or answer,
       even after trying to clarify.
-
+  
       This flow is NOT for playful smalltalk. Use it when:
       - the message is unclear, incomplete, or ambiguous as a campus
         question, and
       - it does not clearly fit identity, abbreviation, or any of the
         thematic search flows, and
       - it is not just off-topic chitchat (smalltalk_flow).
-
-      Typical examples for this flow include:
+  
+      IMPORTANT: WHEN THIS IS NOT FALLBACK (very common cases)
+      Do NOT use fallback_flow when the user is still clearly talking about a campus task,
+      but phrasing is short, referential, or context-dependent. In particular:
+  
+      - Mode-switch follow-ups for the last route are NOT fallback.
+        Examples:
+        - "Can I go there cycling then?"
+        - "Ok, by bike."
+        - "Same route but walking."
+        - "And by bus/train?"
+        These should go to mode_switch_flow (reusing prev_* route context), not fallback_flow.
+  
+      - Route follow-ups that still clearly mean "give directions", even if vague:
+        - "How do I get there?"
+        - "Can you show me the route?"
+        These should go to route_description_flow / travel_mode_clarification_flow,
+        depending on whether a mode is known.
+  
+      - Campus questions that are clearly about facilities/hours/etc. but not perfectly categorized
+        should prefer pattern_search over fallback_flow.
+  
+      Typical examples for fallback_flow include:
       - random character sequences or noise input that do not resemble
         any Radboud building or room code according to the patterns in
         patterns.yml
@@ -1970,7 +2074,7 @@ flows:
         that code
       - questions that are clearly outside the Radboud campus domain and
         cannot be answered from the campus knowledge base.
-
+  
       This flow is the core clarification and fallback logic in a simple
       decision tree:
       - First unclear turn -> ask for a rephrase.
@@ -1984,21 +2088,21 @@ flows:
         are asking" step when the intent or flow choice is ambiguous.
       - pattern_cannot_handle corresponds to the final stage where a
         reliable answer cannot be found after clarification and search.
-
+  
       Behaviour (maximum two clarification attempts, then a final fallback):
-
+  
       1) First unclear turn:
          - The bot should ask once:
            "I did not quite understand that. Can you word your question
            in a different way?"
          - This corresponds to utter_fallback_rephrase.
-
+  
       2) Second unclear turn (user rephrases, but it is still not
          understandable or not answerable from docs):
          - The bot may ask the same clarification once more using
            utter_fallback_rephrase, giving the user one last chance to
            formulate a concrete campus question.
-
+  
       3) Third unclear turn (after two clarification attempts, or still
          no relevant information in the knowledge base):
          - The bot should STOP asking for rephrases.
@@ -2007,18 +2111,21 @@ flows:
            "I am sorry, it looks like I cannot help you with this issue.
            If you are in a hurry, please refer to Google Maps or the
            Radboud University website."
-
+  
       The slot fallback_attempts represents how many clarification
-      attempts have already been made in the current conversation. 
-      The slot fallback_attempts is a deterministic counter and 
-      is ONLY updated by action_increment_fallback_attempts. 
+      attempts have already been made in the current conversation.
+      The slot fallback_attempts is a deterministic counter and
+      is ONLY updated by action_increment_fallback_attempts.
       The assistant/LLM must never set or correct this slot.
-
-      This flow is the last resort when no other flow fits and the bot
-      still cannot understand or answer the user in a campus-relevant
-      way. When EnterpriseSearchPolicy or other patterns cannot handle a
-      request, their behaviour should be aligned with this same
-      three-step clarification and final fallback pattern.
+      
+      IMPORTANT: NOT FALLBACK
+      - Do NOT use fallback_flow for simple acknowledgements or plans that refer
+        to the previous answer, such as:
+        - "Ah great!"
+        - "I have a lecture there later."
+        - "Okay, I’ll go there soon."
+        These should go to acknowledgement_followup_flow (or a similar reaction flow),
+        not to cannot-handle messaging.
     steps:
       - action: action_clear_abbreviation_context
       - action: action_clear_route_context
@@ -2060,6 +2167,9 @@ flows:
           - "Is walking the quickest?"
           - "As fast as possible / zo snel mogelijk"
         Those should go to fastest_route_flow.
+      - Follow-ups like "Can I go there cycling then?" / "Same route but walking"
+        after either a route OR a fastest-route comparison are mode switches:
+        use mode_switch_flow (reuse prev_*).
   
       RELATION TO PUBLIC TRANSPORT INFO
       - If the user primarily asks for public transport information (closest stop/station,
@@ -2143,16 +2253,34 @@ flows:
 
   mode_switch_flow:
     description: |
-      Handles short follow-ups that only switch the travel mode for the LAST route,
-      e.g. "by bus", "by train", "public transport", "ov", "met de bus".
-      Reuses prev_* route context if the user doesn't repeat source/target.
+      Handles follow-up messages that primarily mean:
+      "Use the SAME last route again, but in a different travel mode."
   
-      NOTE
-      - This flow assumes prev_source_building_raw / prev_target_building_raw are set by the last
-        completed route answer (preferably inside action_get_route_description).
-      - If the user asks WHICH option is fastest / quickest (a comparison),
-        for example "is walking the quickest?", do NOT use this flow; use fastest_route_flow.
-
+      Use this flow when:
+      - the user references the last route implicitly (there/that/same route/then),
+        AND they mention a travel mode (walk/bike/car/bus/train/OV/public transport),
+        AND they do NOT provide a new explicit A→B pair.
+  
+      This includes both very short and longer follow-ups, for example:
+      - "By bike."
+      - "Walking please."
+      - "And by bus?"
+      - "Can I go there cycling then?"
+      - "Ok, same route but on foot."
+      - "Could you do that by car instead?"
+  
+      This is NOT a new route request; it is a re-run of the last route in a different mode.
+      The flow should reuse prev_source_building_raw / prev_target_building_raw (set by the last
+      completed route answer) via action_use_prev_route_slots.
+  
+      Decision rules / priority:
+      - If the user is asking PUBLIC TRANSPORT INFO (e.g. "which bus", "which line", "closest stop/station"),
+        route to public_transport_flow instead (travel_mode_hint = public_transport_info).
+      - If the user asks WHICH option is fastest / quickest (a comparison), do NOT use this flow;
+        use fastest_route_flow.
+      - If there is no usable previous route context (prev_* missing) AND the user only says a mode
+        ("by bike"), treat it as ambiguous and prefer clarification (not fallback). The assistant
+        should prompt for where they want to go / which route they mean (handled by route flows).
     steps:
       - set_slots:
           - fallback_attempts: 0
@@ -2263,6 +2391,10 @@ flows:
       between source_building_raw and target_building_raw, and tell the user
       which option is fastest. Use when the user asks for the quickest/fastest
       way or whether a mode is the quickest (e.g., "is walking the quickest?").
+      
+      After answering, a user may choose one option as a follow-up, e.g. "Ok cycling then"
+      or "Then walking please". These follow-ups are mode switches and should be handled
+      by mode_switch_flow (reusing the same source/target context).
 
     steps:
       - set_slots:

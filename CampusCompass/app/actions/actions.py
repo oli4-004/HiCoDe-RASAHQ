@@ -135,7 +135,7 @@ def build_history_snippet(
 
 
 # ---------------------------------------------------------------------------
-# SMALLTALK
+# SMALLTALK AND ACKNOWLEDGEMENT
 # ---------------------------------------------------------------------------
 
 class ActionSmalltalkLLM(Action):
@@ -163,6 +163,35 @@ class ActionSmalltalkLLM(Action):
         dispatcher.utter_message(text=reply)
         return []
 
+class ActionAcknowledgementLLM(Action):
+    """
+    Generate ONE short, friendly acknowledgement when the user reacts to
+    the previous answer without asking a new question (e.g. "Nice, I have a lecture there later").
+    """
+
+    def name(self) -> Text:
+        return "action_acknowledgement_llm"
+
+    def run(
+        self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+
+        controller = get_llm_controller()
+
+        history_snippet = build_history_snippet(
+            tracker,
+            history_mode="full",
+            max_messages=10,
+        )
+
+        try:
+            reply = controller.acknowledgement_reply(history_snippet)
+        except Exception as e:
+            logger.error(f"[ActionAcknowledgementLLM] acknowledgement_reply failed: {e}")
+            reply = "Got it — good luck! 😊"
+
+        dispatcher.utter_message(text=reply)
+        return []
 
 # ---------------------------------------------------------------------------
 # ROUTES & TRAVEL MODE
@@ -661,21 +690,48 @@ class ActionClearAbbreviationContext(Action):
 # ---------------------------------------------------------------------------
 class ActionCannotHandle(Action):
     """
-    Stuurt een fallback met de link naar de campusplattegrond.
+    Send a contextual fallback (LLM) + campus map link.
     """
 
     def name(self) -> Text:
         return "action_cannot_handle"
 
     def run(
-        self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[str, Any],
+    ) -> List[EventType]:
 
         campus_map_url = "https://www.ru.nl/sites/default/files/2025-05/campusplattegrond-2025.pdf"
 
-        dispatcher.utter_message(
-            text="I'm sorry, I cannot help you with this issue. If you are in a hurry, please refer to Google Maps or the campus map."
+        controller = get_llm_controller()
+
+        history_snippet = build_history_snippet(
+            tracker,
+            history_mode="full",
+            max_messages=10,
         )
+
+        required_tail = "If you are in a hurry, please refer to Google Maps or the campus map."
+
+        # LLM-generated contextual fallback
+        try:
+            msg = controller.cannot_handle_fallback(history_snippet)
+        except Exception as e:
+            logger.error(f"[ActionCannotHandle] cannot_handle_fallback failed: {e}")
+            msg = "I'm sorry, I cannot help you with this issue."
+
+        # Always append the required second sentence (unless it is already there)
+        msg = (msg or "").strip()
+        if msg and required_tail not in msg:
+            if not msg.endswith((".", "!", "?")):
+                msg += "."
+            msg = f"{msg} {required_tail}"
+        elif not msg:
+            msg = f"I'm sorry, I cannot help you with this issue. {required_tail}"
+
+        dispatcher.utter_message(text=msg)
 
         dispatcher.utter_message(
             text="Campus Map",

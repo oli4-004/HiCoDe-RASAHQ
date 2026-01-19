@@ -93,7 +93,13 @@ responses:
     - text: "Bye! Good luck on campus."
 
   utter_reply_thanks:
-    - text: "You are welcome! Is there anything else I can help you with?"
+    - text: "You are welcome!"
+
+  utter_anything_else:
+    - text: "Is there anything else I can help you with?"
+
+  utter_decline_help:
+    - text: "Alright. No problem! Have a good day on campus 👋"
 
   # ---------------------------------------------------------------------------
   # Mental health issues (mental_health_*_flow)
@@ -165,6 +171,7 @@ actions:
   # SMALLTALK
   # ---------------------------------------------------------------------------
   - action_smalltalk_llm
+  - action_acknowledgement_llm
 
   # ---------------------------------------------------------------------------
   # ROUTES & TRAVEL MODE
