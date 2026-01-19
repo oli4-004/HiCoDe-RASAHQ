@@ -1091,6 +1091,105 @@ class LLMController:
     # ---------------------------------------------------------------------
     # ROUTE: TURN STRUCTURED DATA INTO A NICE MESSAGE
     # ---------------------------------------------------------------------
+    def format_travel_mode_comparison(
+            self,
+            origin_name: str,
+            destination_name: str,
+            *,
+            summaries: List[Dict[str, Any]],
+            fastest_mode: Optional[str] = None,
+    ) -> str:
+        """
+        Turn route-overview summaries (per mode) into a short, friendly message.
+        The LLM must only use the provided summaries (no hallucinations).
+        """
+
+        pretty = {
+            "walking": "walking",
+            "bicycling": "cycling",
+            "driving": "car",
+            "transit": "public transport",
+        }
+
+        # Determine fastest deterministically if not provided
+        if not fastest_mode:
+            candidates = [
+                s for s in (summaries or [])
+                if (s.get("status") in (None, "", "OK"))
+                   and isinstance(s.get("duration_sec"), int)
+                   and s.get("duration_sec") > 0
+            ]
+            candidates.sort(key=lambda x: x["duration_sec"])
+            fastest_mode = candidates[0]["mode"] if candidates else None
+
+        def _line_for(s: Dict[str, Any]) -> str:
+            mode = s.get("mode") or "unknown"
+            label = pretty.get(mode, mode)
+
+            status = (s.get("status") or "").upper()
+            if status == "NOT_SUGGESTED" and mode == "transit":
+                return f"• {pretty['transit']}: not suggested for this short distance"
+
+            if status == "ERROR":
+                return f"• {label}: unavailable"
+
+            dur = s.get("duration_text") or "unavailable"
+            dist = s.get("distance_text") or ""
+            if dist:
+                return f"• {label}: {dur} ({dist})"
+            return f"• {label}: {dur}"
+
+        fallback_lines: List[str] = []
+        if fastest_mode:
+            fallback_lines.append(
+                f"Fastest option from {origin_name} to {destination_name}: {pretty.get(fastest_mode, fastest_mode)}."
+            )
+        else:
+            fallback_lines.append(f"Here are the estimated travel times from {origin_name} to {destination_name}:")
+
+        for s in summaries or []:
+            fallback_lines.append(_line_for(s))
+
+        fallback = "\n".join(fallback_lines)
+
+        if not self.client:
+            return fallback
+
+        # LLM polish pass (still strictly grounded)
+        system_msg = (
+            "You are CampusCompass, a campus navigation assistant.\n"
+            "You receive TRAVEL_TIME_SUMMARIES from Google Maps for different travel modes.\n"
+            "You must produce a short helpful answer.\n"
+            "\n"
+            "CRITICAL RULES:\n"
+            "- Use ONLY the provided data.\n"
+            "- Do NOT invent times, distances, buses, or steps.\n"
+            "- Keep it concise: 2–6 lines.\n"
+            "- First line must state the fastest option (if provided).\n"
+            "- Then list each mode with its time (and distance if present).\n"
+            "- If a mode is unavailable, say 'unavailable'.\n"
+        )
+
+        user_payload = {
+            "origin": origin_name,
+            "destination": destination_name,
+            "fastest_mode": fastest_mode,
+            "summaries": summaries or [],
+            "pretty_mode_names": pretty,
+        }
+
+        text = self._chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+            ],
+            model="gpt-4o-mini",
+            temperature=0.2,
+            max_completion_tokens=180,
+        )
+
+        return text.strip() if text else fallback
+
     def format_route_description(
             self, origin_name: str, destination_name: str, route: Dict[str, Any], mode: str = "walking"
     ) -> str:

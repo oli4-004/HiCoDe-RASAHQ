@@ -76,6 +76,84 @@ class MapsController:
     # PUBLIC: walking directions
     # ------------------------------------------------------------------
 
+    def get_route_overview(
+            self,
+            origin_name: str,
+            destination_name: str,
+            mode: str = "walking",
+    ) -> Dict[str, Any]:
+        """
+        Lightweight directions call: returns only distance/duration (and whether transit contains a real TRANSIT segment).
+        Intended for comparing travel times across modes.
+        """
+        if not self.api_key or not self._client:
+            raise RuntimeError("MapsController not properly initialised or API key missing.")
+
+        origin_query = self._to_maps_query(origin_name)
+        destination_query = self._to_maps_query(destination_name)
+
+        params = {
+            "origin": origin_query,
+            "destination": destination_query,
+            "mode": mode,
+            "language": "en",
+            "region": "nl",
+            "key": self.api_key,
+        }
+
+        if mode == "transit":
+            params["departure_time"] = int(time.time())
+
+        url = "https://maps.googleapis.com/maps/api/directions/json"
+        resp = self._client.get(url, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("status") != "OK":
+            raise RuntimeError(f"Directions API status {data.get('status')}")
+
+        route0 = (data.get("routes") or [])[0]
+        leg0 = (route0.get("legs") or [])[0]
+
+        duration = leg0.get("duration") or {}
+        distance = leg0.get("distance") or {}
+
+        duration_text = duration.get("text") or ""
+        distance_text = distance.get("text") or ""
+
+        # Numeric values (seconds / meters) for comparisons
+        try:
+            duration_sec = int(duration.get("value") or 0)
+        except Exception:
+            duration_sec = 0
+
+        try:
+            distance_m = int(distance.get("value") or 0)
+        except Exception:
+            distance_m = 0
+
+        has_transit_segments = False
+        if mode == "transit":
+            steps = leg0.get("steps") or []
+            for s in steps:
+                if (s.get("travel_mode") or "").upper() == "TRANSIT":
+                    has_transit_segments = True
+                    break
+
+        return {
+            "status": "OK",
+            "origin": origin_name,
+            "destination": destination_name,
+            "origin_query": origin_query,
+            "destination_query": destination_query,
+            "mode": mode,
+            "duration_text": duration_text,
+            "duration_sec": duration_sec,
+            "distance_text": distance_text,
+            "distance_m": distance_m,
+            "has_transit_segments": has_transit_segments,
+        }
+
     def get_walking_directions(
             self,
             origin_name: str,

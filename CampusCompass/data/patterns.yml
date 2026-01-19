@@ -489,6 +489,614 @@ patterns:
       - "Where do associations organise larger events?"
 
   # ---------------------------------------------------------------------------
+  # EXTRA CONTEXT-INCLUDED PATTERNS
+  # ---------------------------------------------------------------------------
+
+  campus_orientation_patterns:
+    description: |
+      Start: campus_orientation_flow
+  
+      Use this when the user asks for ROUGH ORIENTATION on campus rather than
+      step-by-step directions.
+  
+      Typical examples:
+      - "Where on campus is Toernooiveld?"
+      - "Which area is Wundtlaan / Platolaan?"
+      - "Is Huygens closer to Erasmuslaan or Toernooiveld?"
+      - "Where is this roughly on campus?"
+  
+      Non-examples (use route flows instead):
+      - "How do I get from A to B?"
+      - "Walking directions to Berchmanianum"
+      - "Route from HG to COM"
+  
+      Non-examples (use other thematic flows):
+      - Opening/closing times -> opening_hours_flow
+      - Food/cafés -> food_and_drink_flow
+      - Public transport info (lines/stops) -> public_transport_flow
+  
+
+  campus_map_and_coordinates_patterns:
+    description: |
+      Start: campus_map_and_coordinates_flow
+  
+      Use this when the user explicitly asks for an ADDRESS, POSTCODE,
+      GPS COORDINATES, or "exact location" for a campus building or service.
+  
+      Typical examples:
+      - "What is the address of Berchmanianum?"
+      - "Do you have coordinates for the Central Student Desk?"
+      - "Give me the exact location / postcode of Gymnasion"
+  
+      Non-examples:
+      - Step-by-step directions -> route_description_flow / mode_switch_flow
+      - "Where is X?" (roughly) -> campus_orientation_flow or building_overview_flow
+  
+
+  building_overview_patterns:
+    description: |
+      Start: building_overview_flow
+  
+      Use this when the user asks "what is this building / what’s inside / what is it used for?"
+      about a campus building or facility.
+  
+      Typical examples:
+      - "What is the Huygens building?"
+      - "What can I find inside Grotius?"
+      - "What kind of building is Linnaeus?"
+  
+      Non-examples:
+      - "How do I get there?" -> route_description_flow
+      - "What does HG/MM/EOS mean?" -> abbreviation_flow
+      - Opening hours focus -> opening_hours_flow
+      - Food focus -> food_and_drink_flow
+      - Study spot focus -> study_spots_flow
+  
+
+  berchmanianum_services_patterns:
+    description: |
+      Start: berchmanianum_services_flow
+  
+      Use this when the user asks about the Berchmanianum as an administrative/services
+      building and what central services are located there.
+  
+      Typical examples:
+      - "What services are in the Berchmanianum?"
+      - "What is Berchmanianum used for?"
+      - "Which desks are in BM?"
+  
+      Non-examples:
+      - Directions to Berchmanianum -> route_description_flow
+      - Student card / Central Student Desk specifics -> central_student_desk_flow
+      - Opening times -> opening_hours_flow
+  
+
+  central_student_desk_patterns:
+    description: |
+      Start: central_student_desk_flow
+  
+      Use this when the user asks specifically about the Central Student Desk:
+      what it does, where it is (as a service), and practical service details.
+  
+      Typical examples:
+      - "Where is the Central Student Desk?"
+      - "Do I need an appointment for the Central Student Desk?"
+      - "How do I replace my student card?"
+      - "What can they help with?"
+  
+      Non-examples:
+      - "Walking directions to the Central Student Desk" -> route_description_flow
+      - "What does BM mean?" -> abbreviation_flow
+  
+
+  exam_and_digital_assessment_patterns:
+    description: |
+      Start: exam_and_digital_assessment_flow
+  
+      Use this when the user asks about EXAM logistics, exam-day rules, digital exams,
+      or exam facilities.
+  
+      Typical examples:
+      - "Where do digital exams take place?"
+      - "Do I need my student card for an exam?"
+      - "How do exams work in Comenius?"
+      - "What should I do when I arrive for an exam?"
+  
+      Non-examples:
+      - "How do I get to the exam location?" -> route_description_flow
+      - Building abbreviation only -> abbreviation_flow
+      - Opening hours only -> opening_hours_flow
+  
+
+  lecture_halls_cc_patterns:
+    description: |
+      Start: lecture_halls_cc_flow
+  
+      Use this when the user asks about the Collegezalencomplex (CC/CZC) as a lecture-hall
+      cluster and how to interpret CC-related references.
+  
+      Typical examples:
+      - "What is CC?"
+      - "What does CC1 / CC2 mean?"
+      - "Is CC used for exams?"
+  
+      Non-examples:
+      - "Where is CC?" as directions -> route_description_flow
+      - "What does CC stand for?" (meaning-only) -> abbreviation_flow (if purely meaning-focused)
+  
+
+  university_library_facilities_patterns:
+    description: |
+      Start: university_library_facilities_flow
+  
+      Use this when the user asks about UB facilities/services (printers, group rooms,
+      services, layout) rather than “where can I study”.
+  
+      Typical examples:
+      - "Does the library have printers/scanners?"
+      - "Are there group rooms in the UB?"
+      - "What facilities does the UB have?"
+  
+      Non-examples:
+      - "Where can I study?" -> study_spots_flow
+      - "What time does the UB close?" -> opening_hours_flow
+      - Directions to UB -> route_description_flow
+  
+
+  grotius_law_faculty_patterns:
+    description: |
+      Start: grotius_law_faculty_flow
+  
+      Use this when the user asks about Grotius as the law faculty building: what it contains,
+      what it’s used for, faculty context.
+  
+      Typical examples:
+      - "Is Grotius the law faculty building?"
+      - "What can I find in Grotius?"
+      - "What is the law building on campus?"
+  
+      Non-examples:
+      - "Where is Grotius?" as a route -> route_description_flow
+      - Food in Grotius (Het Gerecht etc.) -> het_gerecht_flow or food_and_drink_flow
+  
+
+  het_gerecht_patterns:
+    description: |
+      Start: het_gerecht_flow
+  
+      Use this when the user explicitly mentions “Het Gerecht” and asks what it is / where it is.
+  
+      Typical examples:
+      - "What is Het Gerecht?"
+      - "Where is Het Gerecht?"
+      - "Is Het Gerecht in Grotius?"
+  
+      Non-examples:
+      - "Where can I eat?" -> food_and_drink_flow
+      - Opening times -> opening_hours_flow
+  
+
+  maria_montessori_building_patterns:
+    description: |
+      Start: maria_montessori_building_flow
+  
+      Use this when the user asks about the Maria Montessori building (MM) in an overview sense:
+      what it is, who uses it, what’s inside.
+  
+      Typical examples:
+      - "What is Maria Montessori?"
+      - "Is MM the Social Sciences building?"
+      - "What can I find inside MM?"
+  
+      Non-examples:
+      - Meaning of "MM" only -> abbreviation_flow
+      - Directions MM -> route_description_flow
+      - Study spots in MM -> study_spots_flow
+      - Food in MM -> food_and_drink_flow
+  
+
+  elinor_ostrom_building_patterns:
+    description: |
+      Start: elinor_ostrom_building_flow
+  
+      Use this when the user asks about the Elinor Ostrom Building (EOS) as a building overview
+      or about notable named sub-locations when asked generally.
+  
+      Typical examples:
+      - "What is EOS?"
+      - "What is De Ondergang?"
+      - "Is Theaterzaal C in EOS?"
+      - "What can I find in the EOS building?"
+  
+      Non-examples:
+      - Meaning of "EOS" only -> abbreviation_flow
+      - Directions to EOS -> route_description_flow
+      - Food/coffee at EOS -> food_and_drink_flow
+      - Opening times EOS -> opening_hours_flow
+  
+
+  huygens_science_building_patterns:
+    description: |
+      Start: huygens_science_building_flow
+  
+      Use this when the user asks about Huygens (HG) as a science hub: building function,
+      what’s inside, general orientation context.
+  
+      Typical examples:
+      - "What is the Huygens building used for?"
+      - "Is Huygens the science building?"
+      - "Does Huygens have labs?"
+  
+      Non-examples:
+      - "What does HG mean?" -> abbreviation_flow
+      - Directions HG -> route_description_flow
+      - Food at HG -> food_and_drink_flow
+  
+
+  linnaeus_building_patterns:
+    description: |
+      Start: linnaeus_building_flow
+  
+      Use this when the user asks about Linnaeus (LIN) as a building: what it is and what it’s used for.
+  
+      Typical examples:
+      - "What is Linnaeus?"
+      - "Is LIN a lecture-hall building?"
+      - "What is the building at Toernooiveld called Linnaeus?"
+  
+      Non-examples:
+      - Meaning-only code question ("what does LIN stand for") -> abbreviation_flow
+      - Directions to LIN -> route_description_flow
+  
+
+  transitorium_building_patterns:
+    description: |
+      Start: transitorium_building_flow
+  
+      Use this when the user asks about Transitorium (TR) as a building: what it is, what’s inside,
+      access notes documented, general context.
+  
+      Typical examples:
+      - "What is Transitorium?"
+      - "Is Transitorium on Toernooiveld?"
+      - "Is there an accessible toilet in Transitorium?"
+  
+      Non-examples:
+      - Meaning-only code question ("what does TR mean") -> abbreviation_flow
+      - Directions to Transitorium -> route_description_flow
+  
+
+  trigon_donders_patterns:
+    description: |
+      Start: trigon_donders_flow
+  
+      Use this when the user asks about Trigon (Kapittelweg 29) and/or its relation to Donders activities.
+  
+      Typical examples:
+      - "What is Trigon?"
+      - "Is Trigon part of Donders?"
+      - "Where do Donders events take place?"
+  
+      Non-examples:
+      - Directions to Kapittelweg 29 -> route_description_flow
+      - Public transport line advice -> public_transport_flow
+  
+
+  mercator_towers_patterns:
+    description: |
+      Start: mercator_towers_flow
+  
+      Use this when the user asks about Mercator I/II/III as a cluster (science park towers),
+      differences between towers, or tower naming.
+  
+      Typical examples:
+      - "What is Mercator I?"
+      - "What’s the difference between Mercator I and II?"
+      - "Is Mercator the computing science building?"
+      - "Where is Thalia located?" (if treated as Mercator-related venue in docs)
+  
+      Non-examples:
+      - Step-by-step route to Mercator -> route_description_flow
+      - Address/coordinates request -> campus_map_and_coordinates_flow
+  
+
+  university_business_centre_patterns:
+    description: |
+      Start: university_business_centre_flow
+  
+      Use this when the user asks about the University Business Centre (UBC) / Toernooiveld 100–154
+      and what it is, entrances, general role.
+  
+      Typical examples:
+      - "What is UBC?"
+      - "Where is the University Business Centre?"
+      - "Is UBC part of the science park?"
+      - "What is Toernooiveld 100?"
+  
+      Non-examples:
+      - Directions to UBC -> route_description_flow
+      - Parking near UBC -> parking_and_garages_flow
+  
+
+  science_research_facilities_patterns:
+    description: |
+      Start: science_research_facilities_flow
+  
+      Use this when the user asks about specialised research facilities (not standard teaching buildings),
+      such as HFML-FELIX, Nanolab, Greenhouse/Test Garden.
+  
+      Typical examples:
+      - "What is HFML-FELIX?"
+      - "What is the Nanolab used for?"
+      - "Where are the greenhouses / test garden?"
+      - "Is this facility open to students?"
+  
+      Non-examples:
+      - Directions to these facilities -> route_description_flow
+      - General campus building overview -> building_overview_flow
+  
+
+  radboudumc_dentistry_patterns:
+    description: |
+      Start: radboudumc_dentistry_flow
+  
+      Use this when the user asks about Dentistry/Tandheelkunde as a Radboudumc-zone building:
+      what it is, building context, aliases.
+  
+      Typical examples:
+      - "Where is Dentistry / Tandheelkunde?" (as a ‘what is/where is’ info question)
+      - "What is the Dentistry building used for?"
+      - "Is Tandheelkunde part of Radboudumc?"
+  
+      Non-examples:
+      - Step-by-step directions to Dentistry -> route_description_flow
+      - Pure code meaning (if only abbreviation) -> abbreviation_flow
+  
+
+  radboudumc_study_center_patterns:
+    description: |
+      Start: radboudumc_study_center_flow
+  
+      Use this when the user asks specifically about the Study Center in the Radboudumc zone:
+      what it is, where it is, who can use it.
+  
+      Typical examples:
+      - "Where is the Radboudumc Study Center?"
+      - "Can I study inside Radboudumc?"
+      - "Is there a study centre for medicine students?"
+  
+      Non-examples:
+      - General study spots on campus -> study_spots_flow
+      - Opening times only -> opening_hours_flow
+      - Step-by-step directions -> route_description_flow
+  
+
+  radboudumc_experience_center_patterns:
+    description: |
+      Start: radboudumc_experience_center_flow
+  
+      Use this when the user asks about the Experience Center Radboudumc as an outreach/exhibition venue:
+      what it is, where it is, visitor context.
+  
+      Typical examples:
+      - "What is the Experience Center?"
+      - "Where is the Radboudumc Experience Center?"
+      - "Is it open to visitors?"
+  
+      Non-examples:
+      - Step-by-step directions -> route_description_flow
+      - Quiet room / prayer room -> prayer_room_flow
+  
+
+  station_heyendaal_patterns:
+    description: |
+      Start: station_heyendaal_flow
+  
+      Use this when the user asks about Nijmegen Heyendaal / Station Heyendaal as the campus station:
+      what it is, how it relates to campus zones, general station context.
+  
+      Typical examples:
+      - "Is Heyendaal the campus station?"
+      - "Which buildings are close to Heyendaal?"
+      - "What is Station Heyendaal?"
+  
+      Non-examples:
+      - Which bus/train line or stop info -> public_transport_flow
+      - Step-by-step route from the station -> route_description_flow
+  
+
+  parking_and_garages_patterns:
+    description: |
+      Start: parking_and_garages_flow
+  
+      Use this when the user asks about parking garages, parking areas (P-codes), parking rules,
+      EV charging, height limits, paid hours, or "where can I park near X?"
+  
+      Typical examples:
+      - "Where can I park near EOS?"
+      - "Is P7b open 24/7?"
+      - "Does the Gymnasion garage have EV charging?"
+      - "When is parking paid?"
+  
+      Non-examples:
+      - Driving directions from A to B -> route_description_flow
+      - Public transport options instead of parking -> public_transport_flow
+  
+
+  gymnasion_sports_centre_patterns:
+    description: |
+      Start: gymnasion_sports_centre_flow
+  
+      Use this when the user asks about Gymnasion / Radboud Sports Centre:
+      what it is, facilities, where it is (as info).
+  
+      Typical examples:
+      - "What is Gymnasion?"
+      - "Where is the sports centre?"
+      - "Is there a gym/fitness on campus?"
+  
+      Non-examples:
+      - Opening times -> opening_hours_flow
+      - Step-by-step route -> route_description_flow
+      - Parking near sports centre -> parking_and_garages_flow
+  
+
+  childcare_patterns:
+    description: |
+      Start: childcare_flow
+  
+      Use this when the user asks about on-campus childcare/daycare (Kinderopvang Heyendael / KDV Heyendael):
+      what it is, where it is, access notes.
+  
+      Typical examples:
+      - "Is there childcare on campus?"
+      - "Where is Kinderopvang Heyendael?"
+      - "How do I access the daycare building?"
+  
+      Non-examples:
+      - Step-by-step route -> route_description_flow
+      - Opening times only -> opening_hours_flow
+  
+
+  student_church_and_chaplaincy_patterns:
+    description: |
+      Start: student_church_and_chaplaincy_flow
+  
+      Use this when the user asks about the Student Church / chaplaincy / community reflection place
+      as a service/venue, not the general multi-location prayer-room question.
+  
+      Typical examples:
+      - "What is the Studentenkerk?"
+      - "Is there chaplaincy on campus?"
+      - "Where is Erasmuslaan 9a?"
+  
+      Non-examples:
+      - "Is there a prayer room on campus?" -> prayer_room_flow
+      - Opening times only -> opening_hours_flow
+  
+
+  aula_ceremony_patterns:
+    description: |
+      Start: aula_ceremony_flow
+  
+      Use this when the user asks about the Aula specifically as a graduation/ceremony venue
+      and what it’s used for / where it is (as info).
+  
+      Typical examples:
+      - "Where is the Aula?"
+      - "Is the Aula used for graduations?"
+      - "What is the graduation hall?"
+  
+      Non-examples:
+      - Step-by-step route -> route_description_flow
+      - General event venues -> event_and_activity_flow (if not Aula-specific)
+  
+
+  huize_heyendael_patterns:
+    description: |
+      Start: huize_heyendael_flow
+  
+      Use this when the user asks about Huize Heyendael as a hospitality/event/meeting venue:
+      what it is and general access expectations.
+  
+      Typical examples:
+      - "What is Huize Heyendael?"
+      - "Where is Huize Heyendael located?"
+      - "Is it a teaching building?"
+  
+      Non-examples:
+      - Step-by-step route -> route_description_flow
+      - Opening hours only -> opening_hours_flow
+  
+
+  villa_oud_heyendael_patterns:
+    description: |
+      Start: villa_oud_heyendael_flow
+  
+      Use this when the user asks about Villa Oud Heyendael as a location/venue
+      and what it is used for.
+  
+      Typical examples:
+      - "What is Villa Oud Heyendael?"
+      - "Where is Villa Oud Heyendael?"
+      - "What happens in the old villa?"
+  
+      Non-examples:
+      - Step-by-step route -> route_description_flow
+  
+
+  werf_gwt_goods_receiving_patterns:
+    description: |
+      Start: werf_gwt_goods_receiving_flow
+  
+      Use this when the user asks about Werf GWT / Goods Receiving / Central Warehouse:
+      deliveries, logistics, where goods are received, and what it is.
+  
+      Typical examples:
+      - "What is Werf GWT?"
+      - "Where do deliveries go on campus?"
+      - "What is goederenontvangst?"
+  
+      Non-examples:
+      - Step-by-step route for a delivery driver -> route_description_flow (if they ask directions)
+      - General campus services -> building_overview_flow
+  
+
+  erasmus_building_patterns:
+    description: |
+      Start: erasmus_building_flow
+  
+      Use this when the user asks about the Erasmus Building as a landmark tower:
+      what it is, which faculties, what’s inside (overview).
+  
+      Typical examples:
+      - "What is the Erasmus building?"
+      - "Is Erasmus the humanities tower?"
+      - "Which faculties are in Erasmus?"
+  
+      Non-examples:
+      - "What does E mean?" -> abbreviation_flow (if purely meaning)
+      - Step-by-step directions -> route_description_flow
+      - Opening hours -> opening_hours_flow
+  
+
+  refter_mensa_patterns:
+    description: |
+      Start: refter_mensa_flow
+  
+      Use this when the user asks specifically about De Refter as the main campus restaurant/canteen:
+      what it is and where it is (as documented).
+  
+      Typical examples:
+      - "What is De Refter?"
+      - "Where is the mensa/canteen?"
+      - "Is De Refter connected to Erasmus?"
+  
+      Non-examples:
+      - "Where can I eat?" (general) -> food_and_drink_flow
+      - Opening times only -> opening_hours_flow
+  
+
+  spinoza_building_patterns:
+    description: |
+      Start: spinoza_building_flow
+  
+      Use this when the user asks about the Spinoza building (SP) as a building overview
+      and/or its documented access regime (often only open for scheduled activities).
+  
+      Typical examples:
+      - "What is SP?"
+      - "What is the Spinoza building used for?"
+      - "Is SP open all day?"
+      - "Where is Spinoza relative to MM/Comenius?"
+  
+      Non-examples:
+      - Meaning-only code question -> abbreviation_flow
+      - Step-by-step route -> route_description_flow
+      - Opening hours only -> opening_hours_flow
+
+
+  # ---------------------------------------------------------------------------
   # TRANSPORT & ROUTES (WALK / BIKE / CAR / TRANSIT / PUBLIC TRANSPORT INFO)
   # ---------------------------------------------------------------------------
 
@@ -502,6 +1110,8 @@ patterns:
         in words between two locations (for example "How do I get from A to B?").
       - Use the intent ask_travel_time when the user mainly wants to know how long
         it takes (walking/transit/bike/car) between two locations.
+      - Use fastest_route_flow when the user is asking WHICH option is fastest/quickest
+        (a comparison across modes), even if they do not name a mode.
   
       HIGH-LEVEL DECISION:
       - If the user clearly talks about WALKING, CYCLING, CAR, or a TRANSIT ROUTE
@@ -510,6 +1120,13 @@ patterns:
       - If the user clearly asks for PUBLIC TRANSPORT INFORMATION (which bus/train line,
         closest station/stop, bus stop near X, etc.), treat it as an OV-info question:
         → use public_transport_flow.
+      - If the user asks WHICH option is FASTEST / QUICKEST (a comparison), for example:
+        - "What is the quickest way?"
+        - "Is walking the quickest?"
+        - "Which is faster: bike or walking?"
+        - "As fast as possible / zo snel mogelijk"
+        and there are buildings/places involved:
+        → use fastest_route_flow.
       - If the user mentions buildings/places but does NOT clearly specify
         walking/cycling/car/transit or OV-info ("How do I get to EOS?"):
         → start travel_mode_clarification_flow first, so the assistant can ask
@@ -653,10 +1270,8 @@ patterns:
         (no walking/cycling/car words and no transit/OV words, e.g. "How do I get to EOS?"),
         you MUST set travel_mode_hint = "unknown" and prefer
         travel_mode_clarification_flow to ask the user for their preference.
-      - If the user only says vague speed words like "as fast as possible",
-        "as quickly as possible", "zo snel mogelijk", without naming a mode
-        such as walk/bike/bus/train/car, this is NOT a clear mode:
-        → set travel_mode_hint = "unknown" so the assistant will ask which mode they prefer.
+      - If the user asks WHICH option is FASTEST / QUICKEST (a comparison) and does not name a mode,
+        you MUST set travel_mode_hint = "unknown" and use fastest_route_flow.
       - If you really cannot tell the mode from the wording, set travel_mode_hint = "unknown".
   
        VERY CONCRETE SLOT ASSIGNMENT EXAMPLES
@@ -727,6 +1342,8 @@ patterns:
       - In these cases, you MUST NOT guess the mode.
         Instead, start travel_mode_clarification_flow so the assistant can ask:
         "Do you want to walk, cycle, go by car, or use public transport (bus/train)?"
+      - If the user asks WHICH option is fastest / quickest (a comparison),
+        do NOT use this flow; use fastest_route_flow.
   
       SLOT BEHAVIOUR:
       - Before asking about the travel mode, this flow should silently fill
@@ -749,6 +1366,7 @@ patterns:
         - First: "Which bus line should I take to EOS?" → public_transport_flow.
         - Then: "I mean by foot." → treat the new message as a fresh query:
           travel_mode_hint = "walk" and use route_description_flow.
+  
 
   public_transport_patterns:
     description: |
@@ -823,12 +1441,13 @@ patterns:
       - "Is there a bus stop near the University Library?"
       - "Which bus line should I take to EOS?"
       - "What OV should I use to get from the city centre to MM?"
+  
 
   mode_switch_patterns:
     description: |
       Use mode_switch_flow when the user sends a SHORT follow-up that ONLY changes the travel mode
       for the previous route, without repeating the origin/destination.
-
+  
       Typical examples:
       - "by bus"
       - "by train"
@@ -837,13 +1456,42 @@ patterns:
       - "met de bus"
       - "met ov"
       - "and by bus?"
-
+  
       This is NOT a new route request; it is a re-run of the last route in a different mode.
-
+  
       Decision rules:
       - If the message is a pure mode switch (bus/train/ov/public transport) -> mode_switch_flow.
       - If the user asks public transport INFO (e.g. "which bus", "closest stop", "which line") -> public_transport_flow instead.
       - If they switch to "by bike" / "on foot" / "by car", mode_switch_flow is still correct (it should reuse the last route).
+      - If the user asks WHICH option is fastest / quickest (a comparison), for example "is walking the quickest?",
+        do NOT use mode_switch_flow; use fastest_route_flow.
+  
+
+  fastest_route_patterns:
+    description: |
+      Use this when the user is asking WHICH travel mode is quickest/fastest,
+      or whether a specific mode (walking/cycling/car/public transport) is the quickest.
+  
+      Start: fastest_route_flow
+  
+      Key idea:
+      - This is NOT a request for step-by-step directions.
+      - You must compare modes (walking, bicycling, driving, transit) and report:
+        (a) which is fastest, and
+        (b) the estimated time for each mode (or mark unavailable / not suggested).
+  
+      Typical examples:
+      - "What is the quickest route and mode of transportation?"
+      - "Is walking the quickest?"
+      - "What's the fastest way to get from Huygens to Comenius?"
+      - "Which is faster: biking or walking?"
+      - "What’s the fastest option right now?"
+      - "As fast as possible / zo snel mogelijk"
+  
+      Non-examples (use route_description_flow instead):
+      - "Give me walking directions from HG to COM."
+      - "Directions to Berchmanianum by car."
+
 
   # ---------------------------------------------------------------------------
   # OPENING HOURS, OTHER FACILITIES, STUDY SPOTS

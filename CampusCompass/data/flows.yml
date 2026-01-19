@@ -715,6 +715,993 @@ flows:
               - action: action_listen
                 next: END
 
+  campus_orientation_flow:
+    description: |
+      Handles general campus ORIENTATION questions that are not asking for a
+      step-by-step route, but for landmarks, addresses, named campus streets,
+      and “where is it roughly?” explanations.
+
+      Typical examples:
+      - "Where on campus is Toernooiveld?"
+      - "Which road is Wundtlaan / Platolaan?"
+      - "What is the easiest landmark to find the Huygens side?"
+      - "Is this building near Erasmusplein or Toernooiveld?"
+
+      Use this flow when:
+      - the user asks for rough orientation, landmarks, campus street names,
+        or "which area of campus" guidance,
+      - and they are NOT asking for turn-by-turn directions (those go to route flows).
+
+      Behaviour:
+      - Use action_trigger_search to consult campus street references and location overviews.
+      - Answer in 2–4 short sentences with:
+        - area/zone (e.g. Erasmuslaan side vs Toernooiveld science side),
+        - one or two landmark anchors,
+        - optionally a short “how to recognise it”.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  campus_map_and_coordinates_flow:
+    description: |
+      Handles requests for exact ADDRESSES and/or GPS COORDINATES for campus
+      buildings and services.
+
+      Typical examples:
+      - "What is the address of the Berchmanianum?"
+      - "Do you have GPS coordinates for the Central Student Desk?"
+      - "Give me the exact location of the Gymnasion parking garage."
+      - "What’s the address of Childcare Heyendael?"
+
+      Use this flow when:
+      - the user explicitly asks for an address, postcode, coordinates, or “exact location”.
+
+      Behaviour:
+      - Use action_trigger_search (building coordinates overview).
+      - Return the address first, then coordinates if available.
+      - Do NOT produce step-by-step directions here.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  building_overview_flow:
+    description: |
+      Handles “what is this building / what’s inside” questions for any documented
+      campus building or facility.
+
+      Typical examples:
+      - "What is the Huygens building?"
+      - "What kind of building is Linnaeus?"
+      - "What can I find inside Grotius?"
+      - "Is Transitorium a teaching building or a lab building?"
+
+      Use this flow when:
+      - the user’s main intent is understanding the building’s function,
+        who uses it, and key facilities,
+      - and the question is NOT primarily about opening hours (opening_hours_flow),
+        not about food (food_and_drink_flow), and not about routes (route flows).
+
+      Behaviour:
+      - Use action_trigger_search to consult the relevant building doc.
+      - Answer with:
+        - 1 sentence: building type/purpose,
+        - 1–2 bullet-like facts: key facilities / typical users / landmark.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  berchmanianum_services_flow:
+    description: |
+      Handles questions about the Berchmanianum as an administration/governance
+      building and what central services are located there.
+
+      Typical examples:
+      - "What is the Berchmanianum?"
+      - "What services are in BM?"
+      - "Is Student Life located in the Berchmanianum?"
+      - "Where do I go for International Mobility appointments?"
+
+      Use this flow when:
+      - the user is asking about the Berchmanianum’s role and services,
+        not asking for directions.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  central_student_desk_flow:
+    description: |
+      Handles questions specifically about the Central Student Desk:
+      where it is, what it does, and practical details mentioned in the docs.
+
+      Typical examples:
+      - "Where is the Central Student Desk?"
+      - "What can the Central Student Desk help with?"
+      - "How do I replace my student card?"
+      - "Do I need an appointment for the Central Student Desk?"
+
+      Use this flow when:
+      - the user is asking about the service itself (not a step-by-step route).
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  exam_and_digital_assessment_flow:
+    description: |
+      Handles questions about exams, digital exams, exam-day rules, and exam logistics
+      (especially related to Comenius A/B as exam complex).
+
+      Typical examples:
+      - "Where do digital exams take place?"
+      - "What do I need for my exam in Comenius?"
+      - "Do I need my student card for an exam?"
+      - "How does seating/QR code work?"
+
+      Use this flow when:
+      - the user asks about exam logistics/rules rather than directions.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  lecture_halls_cc_flow:
+    description: |
+      Handles questions about the Collegezalencomplex (CC/CZC) as a lecture-hall cluster:
+      what it is, how to interpret CC1/CC2/CC3 references, and what to expect there.
+
+      Typical examples:
+      - "What is CC?"
+      - "What does CC1 mean?"
+      - "Is CC used for exams?"
+      - "What is the Collegezalencomplex like?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  university_library_facilities_flow:
+    description: |
+      Handles questions about University Library (UB) facilities and what you can do there
+      (study halls, group rooms, services, accessibility), not primarily about study-spot advice.
+
+      Typical examples:
+      - "What facilities does the UB have?"
+      - "Does the library have printers/scanners?"
+      - "Are there group rooms in the UB?"
+      - "What is the UB like inside?"
+
+      Note:
+      - If the user mainly wants “where can I study?”, use study_spots_flow.
+      - If the user mainly asks opening times, use opening_hours_flow.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  grotius_law_faculty_flow:
+    description: |
+      Handles questions about the Grotius building as Law faculty hub:
+      what it contains, law study spaces, and related faculty context.
+
+      Typical examples:
+      - "What is Grotius?"
+      - "Is Grotius the law faculty building?"
+      - "Are there study spaces in Grotius?"
+      - "What can I find in the law building?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  het_gerecht_flow:
+    description: |
+      Handles questions specifically about “Het Gerecht” (the restaurant inside Grotius):
+      what kind of place it is and where it is located (as documented).
+
+      Typical examples:
+      - "What is Het Gerecht?"
+      - "Where is Het Gerecht on campus?"
+      - "Is Het Gerecht in Grotius?"
+
+      Note:
+      - If the user asks generally “where can I eat?”, use food_and_drink_flow.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  maria_montessori_building_flow:
+    description: |
+      Handles questions about the Maria Montessori building (MM) as Social Sciences hub:
+      what it is, what’s inside, and practical building context.
+
+      Typical examples:
+      - "What is MM?"
+      - "What faculty is in Maria Montessori?"
+      - "Is MM the Social Sciences building?"
+      - "What can I find inside Montessori?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  elinor_ostrom_building_flow:
+    description: |
+      Handles questions about the Elinor Ostrom Building (EOS):
+      what it is, what faculty uses it, key facilities, and notable sub-locations
+      like De Ondergang or Theaterzaal C (when asked in general terms).
+
+      Typical examples:
+      - "What is EOS?"
+      - "What is De Ondergang?"
+      - "Is Theaterzaal C in EOS?"
+      - "What can I find in the management building?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  huygens_science_building_flow:
+    description: |
+      Handles questions about the Huygens building (HG) as the main Science hub:
+      building function, wings/complex character, labs/teaching mix, and general orientation.
+
+      Typical examples:
+      - "What is HG?"
+      - "Is Huygens the science building?"
+      - "Does Huygens have labs?"
+      - "What kind of building is Huygens?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  linnaeus_building_flow:
+    description: |
+      Handles questions about Linnaeus (LIN) as a lecture-hall building on the Toernooiveld side.
+
+      Typical examples:
+      - "What is Linnaeus?"
+      - "What does LIN stand for in my schedule?"
+      - "Is Linnaeus for big lectures?"
+      - "Where is the Toernooiveld rotonde building?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  transitorium_building_flow:
+    description: |
+      Handles questions about the Transitorium (TR) as a science-zone teaching building
+      on Toernooiveld 5, including practical wayfinding and accessibility notes when documented.
+
+      Typical examples:
+      - "What is Transitorium?"
+      - "What does TR mean?"
+      - "Is Transitorium on Toernooiveld?"
+      - "Is there an accessible toilet in Transitorium?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  trigon_donders_flow:
+    description: |
+      Handles questions about Trigon (Kapittelweg 29) and its association with
+      Donders Institute activities, meetings, and events/colloquia.
+
+      Typical examples:
+      - "What is Trigon?"
+      - "Is Trigon part of Donders?"
+      - "Where do Donders events take place?"
+      - "What kind of building is Kapittelweg 29?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  mercator_towers_flow:
+    description: |
+      Handles questions about Mercator I/II/III as the computing/science-park tower cluster:
+      what each tower is for, who uses them, and how to interpret “Mercator I/II/III”.
+
+      Typical examples:
+      - "What is Mercator I?"
+      - "Is Mercator the computing science building?"
+      - "What’s the difference between Mercator I and II?"
+      - "Where is Thalia located?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  university_business_centre_flow:
+    description: |
+      Handles questions about the University Business Centre (UBC) / Mercator business centre
+      on Toernooiveld 100–154: what it is and how to interpret the many entrances.
+
+      Typical examples:
+      - "What is UBC?"
+      - "Where is the University Business Centre?"
+      - "Is UBC part of the science park?"
+      - "What is Toernooiveld 100?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  science_research_facilities_flow:
+    description: |
+      Handles questions about specialised SCIENCE RESEARCH facilities that are not
+      general teaching buildings: HFML-FELIX, Nanolab, Greenhouse Complex/Test Garden.
+
+      Typical examples:
+      - "What is HFML-FELIX?"
+      - "What is the Nanolab used for?"
+      - "Where are the greenhouses / experimental garden?"
+      - "Is this a teaching building or research-only?"
+
+      Behaviour:
+      - Use action_trigger_search and clearly state access expectations if documented
+        (e.g., controlled labs, research staff, not walk-in teaching).
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  radboudumc_dentistry_flow:
+    description: |
+      Handles questions about Dentistry/Tandheelkunde as a Radboudumc-zone building:
+      what it is, aliases, and practical orientation notes (when documented).
+
+      Typical examples:
+      - "Where is Dentistry / Tandheelkunde?"
+      - "What is the Dentistry building used for?"
+      - "Is TFV in Dentistry?"
+      - "Is Spinozagebouw/Tandheelkunde a stop name?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  radboudumc_study_center_flow:
+    description: |
+      Handles questions about the Study Center Radboudumc (Study Center Medical Sciences):
+      what it is, where it is inside the Radboudumc zone, and who uses it.
+
+      Typical examples:
+      - "Where is the Study Center in Radboudumc?"
+      - "Can I study inside Radboudumc?"
+      - "What is route number 89?"
+      - "Is there a study place for medicine students?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  radboudumc_experience_center_flow:
+    description: |
+      Handles questions about the Experience Center Radboudumc as a public-facing
+      outreach/exhibition venue.
+
+      Typical examples:
+      - "What is the Experience Center?"
+      - "Where is the Radboudumc Experience Center?"
+      - "Is it open to visitors?"
+      - "Is it near Dentistry?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  station_heyendaal_flow:
+    description: |
+      Handles questions about Nijmegen Heyendaal / Station Heyendaal as the campus train stop:
+      what it is, what it connects to, and how it relates to campus zones.
+
+      Typical examples:
+      - "What is Station Heyendaal?"
+      - "Is Heyendaal the campus station?"
+      - "Which buildings are close to Heyendaal?"
+      - "Is there OV-fiets at Heyendaal?"
+
+      Note:
+      - For bus/train line advice, prefer public_transport_flow.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  parking_and_garages_flow:
+    description: |
+      Handles questions about parking (especially Parking Garage Gymnasion / P7b)
+      and practical parking rules mentioned in the docs (paid hours, height limit, EV).
+
+      Typical examples:
+      - "Where can I park near EOS?"
+      - "Is P7b open 24/7?"
+      - "Does the Gymnasion garage have EV charging?"
+      - "When is parking paid?"
+
+      Note:
+      - If the user asks for a driving route to a destination, use route_description_flow.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  gymnasion_sports_centre_flow:
+    description: |
+      Handles questions about Gymnasion / Radboud Sports Centre:
+      what facilities it has, where it is, and basic access/parking context.
+
+      Typical examples:
+      - "Where is the sports centre?"
+      - "What is Gymnasion?"
+      - "Is the sports centre close to EOS?"
+      - "Can I find fitness there?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  childcare_flow:
+    description: |
+      Handles questions about on-campus childcare (Kinderopvang Heyendael / KDV Heyendael):
+      what it is, where it is, access notes (doorbell), and the basic service regime.
+
+      Typical examples:
+      - "Is there childcare on campus?"
+      - "Where is Kinderopvang Heyendael?"
+      - "How do I access the daycare building?"
+      - "Is it near Brakkenstein?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  student_church_and_chaplaincy_flow:
+    description: |
+      Handles questions about the Student Church (Studentenkerk) as a chapel/chaplaincy
+      and community/reflection place (not the same as prayer-room specifics).
+
+      Typical examples:
+      - "What is the Studentenkerk?"
+      - "Is there chaplaincy on campus?"
+      - "Where is Erasmuslaan 9a?"
+      - "Is the Student Church open to non-religious students?"
+
+      Note:
+      - If the user asks specifically for prayer/quiet rooms across campus,
+        use prayer_room_flow.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  aula_ceremony_flow:
+    description: |
+      Handles questions about the Aula as a ceremony and events venue:
+      graduations, academic ceremonies, and large event logistics described in the docs.
+
+      Typical examples:
+      - "Where is the Aula?"
+      - "Is the Aula used for graduations?"
+      - "What is the graduation hall on campus?"
+      - "How do I recognise the Aula building?"
+
+      Note:
+      - If the user asks for event venues in general, event_and_activity_flow can also apply.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  huize_heyendael_flow:
+    description: |
+      Handles questions about Huize Heyendael as a representative hospitality/event venue
+      (meetings, receptions, dinners), typically reservation/program-based.
+
+      Typical examples:
+      - "What is Huize Heyendael?"
+      - "Where is Huize Heyendael located?"
+      - "Is Huize Heyendael a teaching building?"
+      - "Do I need a reservation to enter?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  villa_oud_heyendael_flow:
+    description: |
+      Handles questions about Villa Oud Heyendael as a staff/meeting/event villa location
+      and what it is used for (as documented).
+
+      Typical examples:
+      - "What is Villa Oud Heyendael?"
+      - "Where is the old villa on campus?"
+      - "Is PV Radboud in the villa?"
+      - "Is it close to the Student Church or Gymnasion?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  werf_gwt_goods_receiving_flow:
+    description: |
+      Handles questions about Werf GWT / Goods Receiving / Central Warehouse:
+      what it is, who uses it, and what it is NOT (not student-facing).
+
+      Typical examples:
+      - "What is Werf GWT?"
+      - "Where do deliveries go on campus?"
+      - "What is goederenontvangst?"
+      - "Is there a public counter for deliveries?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  erasmus_building_flow:
+    description: |
+      Handles questions about the Erasmus Building (Erasmus tower / E) as landmark high-rise:
+      which faculties use it, how to recognise it, and key orientation anchors mentioned.
+
+      Typical examples:
+      - "What is the Erasmus building?"
+      - "What does E mean on campus?"
+      - "Is Erasmus the humanities tower?"
+      - "Which faculties are in Erasmus?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  refter_mensa_flow:
+    description: |
+      Handles questions specifically about De Refter as the main campus restaurant/canteen,
+      including location/role as documented.
+
+      Typical examples:
+      - "What is De Refter?"
+      - "Where is the mensa/canteen?"
+      - "Is De Refter connected to Erasmus?"
+      - "What is the main campus restaurant called?"
+
+      Note:
+      - If the user asks generally “where can I eat?”, use food_and_drink_flow.
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
+  spinoza_building_flow:
+    description: |
+      Handles questions about the Spinoza building (SP) and its usage regime
+      (often “open only during scheduled activities”) as documented.
+
+      Typical examples:
+      - "What is SP?"
+      - "What is the Spinoza building used for now?"
+      - "Is SP open all day?"
+      - "Where is Spinoza in relation to MM/Grotius/Comenius?"
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+      - action: action_trigger_search
+        next:
+          - if: slots.docs_status == "NEED_INFO"
+            then:
+              - link: docs_need_info_flow
+          - if: slots.docs_status == "NOT_IN_DOCS"
+            then:
+              - link: docs_not_in_docs_flow
+          - else:
+              - action: action_listen
+                next: END
+
+
   other_facilities_flow:
     description: |
       Handles questions about other campus facilities that are not
@@ -1048,11 +2035,12 @@ flows:
   # ---------------------------------------------------------------------------
   # TRANSPORT FLOWS
   # ---------------------------------------------------------------------------
+
   route_description_flow:
     description: |
       Handles step-by-step directions between two places (A → B) for:
       WALK, CYCLE, CAR, or TRANSIT (public-transport route).
-
+  
       WHEN TO USE THIS FLOW
       - The user asks for a route between two places and either:
         - explicitly mentions a mode ("walk", "bike", "car", "by bus/train", "OV"), OR
@@ -1061,16 +2049,22 @@ flows:
         - "How do I get from MM to Huygens?"
         - "How do I drive from Berchmanianum to Huygens?"
         - "How do I get from Nijmegen Centraal to Huygens by train?"
-
+  
       WHAT THIS FLOW IS NOT FOR
       - Short follow-ups that ONLY switch the mode for the previous route context
         (e.g. "By bus?", "And by train?", "Same route but OV").
         Those should go to mode_switch_flow, which reuses prev_* slots.
-
+      - Questions that ask WHICH option is fastest / quickest (a comparison),
+        for example:
+          - "What is the quickest way?"
+          - "Is walking the quickest?"
+          - "As fast as possible / zo snel mogelijk"
+        Those should go to fastest_route_flow.
+  
       RELATION TO PUBLIC TRANSPORT INFO
       - If the user primarily asks for public transport information (closest stop/station,
         which line, etc.) instead of a step-by-step route, use public_transport_flow.
-
+  
       SLOT BEHAVIOUR / STATE
       - This flow may reuse existing source_building_raw / target_building_raw if present.
       - Avoid leaving stale route slots behind that could cause accidental mode assumptions later.
@@ -1104,7 +2098,6 @@ flows:
         next: END
 
 
-
   travel_mode_clarification_flow:
     description: |
       Clarifies whether the user wants to WALK/CYCLE/CAR or travel by PUBLIC TRANSPORT (TRANSIT)
@@ -1116,6 +2109,8 @@ flows:
         BUT they do NOT clearly mention walking, cycling, car or transit/public transport.
       - In that case, the assistant MUST NOT guess a mode.
         Instead, it should start this flow.
+      - If the user is asking WHICH option is fastest / quickest (a comparison),
+        do NOT use this flow; use fastest_route_flow instead.
   
       SLOT BEHAVIOUR
       - Before asking about the travel mode, this flow first tries to silently fill
@@ -1145,15 +2140,19 @@ flows:
         - collect: travel_mode_hint
           next: END
 
+
   mode_switch_flow:
     description: |
       Handles short follow-ups that only switch the travel mode for the LAST route,
       e.g. "by bus", "by train", "public transport", "ov", "met de bus".
       Reuses prev_* route context if the user doesn't repeat source/target.
-      
+  
       NOTE
       - This flow assumes prev_source_building_raw / prev_target_building_raw are set by the last
         completed route answer (preferably inside action_get_route_description).
+      - If the user asks WHICH option is fastest / quickest (a comparison),
+        for example "is walking the quickest?", do NOT use this flow; use fastest_route_flow.
+
     steps:
       - set_slots:
           - fallback_attempts: 0
@@ -1185,7 +2184,7 @@ flows:
       Handles questions about PUBLIC TRANSPORT INFORMATION (OV info) to, from and around campus:
       which stations/stops are relevant, which line is typically used (if documented),
       and general orientation — but NOT a full step-by-step transit route.
-
+  
       WHEN TO USE THIS FLOW
       - The user explicitly asks for public transport *info* concepts, such as:
         "Which station is closest to Huygens?"
@@ -1198,10 +2197,10 @@ flows:
         - "Which bus should I take to EOS?"
         - "Which station is closest to Huygens?"
         - "Is there a bus stop near the University Library?"
-
+  
       RELATION TO TRANSIT ROUTES
       - Do NOT use this flow for a step-by-step transit route between two places
-        (e.g. "How do I get from Nijmegen Centraal to Huygens by train?").
+        (e.g. "How do I get from Nijmegen Centraal to EOS by train?").
         Those should be handled by route_description_flow with travel_mode_hint = "transit".
       - Short follow-ups that ONLY switch the mode to transit/public transport for the SAME route context,
         for example:
@@ -1211,11 +2210,11 @@ flows:
         - "What about by train?"
         should be handled by mode_switch_flow (which reuses prev_* route slots),
         unless the user is explicitly asking for info like a line/stop/station.
-
+  
       - However, you may still mention short walking segments in your informational answer
         if they are explicitly documented (e.g. "From Nijmegen Heyendaal station, it's about
         a 5-minute walk to Huygens").
-
+  
       SLOT / STATE CLEANUP
       - This flow may also use source_building_raw and target_building_raw
         to ground its advice (for example 'from Nijmegen Centraal to EOS').
@@ -1225,7 +2224,7 @@ flows:
       - NOTE: If end-of-flow slot clearing causes re-collection or the flow to "hang" in your setup,
         move the cleanup into the answering action (snapshot → prev_* and clear current route slots there),
         rather than as a separate final step.
-
+  
       BEHAVIOUR
       - Use action_trigger_search to consult campus transport information and
         building/location documents via enterprise search (including the
@@ -1256,6 +2255,31 @@ flows:
           - else:
               - action: action_clear_route_context
                 next: END
+
+
+  fastest_route_flow:
+    description: >
+      Compare travel times across modes (walking, bicycling, driving, transit)
+      between source_building_raw and target_building_raw, and tell the user
+      which option is fastest. Use when the user asks for the quickest/fastest
+      way or whether a mode is the quickest (e.g., "is walking the quickest?").
+
+    steps:
+      - set_slots:
+          - fallback_attempts: 0
+
+      - action: action_llm_prefill_route_slots
+
+      - action: action_use_prev_route_slots
+
+      - collect: source_building_raw
+        ask_before_filling: false
+
+      - collect: target_building_raw
+        ask_before_filling: false
+
+      - action: action_compare_travel_modes
+
 
   # ---------------------------------------------------------------------------
   # RASA DEFAULT PATTERN OVERRIDES (MINIMAL / LOW-NOISE)

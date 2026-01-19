@@ -168,6 +168,119 @@ class ActionSmalltalkLLM(Action):
 # ROUTES & TRAVEL MODE
 # ---------------------------------------------------------------------------
 
+class ActionCompareTravelModes(Action):
+    """
+    Compare durations across walking/bicycling/driving/transit and tell the user
+    which mode is fastest + show all durations.
+    """
+
+    def name(self) -> Text:
+        return "action_compare_travel_modes"
+
+    def run(
+        self,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: Dict[str, Any],
+    ) -> List[EventType]:
+
+        source_raw = (tracker.get_slot("source_building_raw") or "").strip()
+        target_raw = (tracker.get_slot("target_building_raw") or "").strip()
+
+        if not source_raw:
+            dispatcher.utter_message(text="I am still missing your starting point.")
+            return []
+        if not target_raw:
+            dispatcher.utter_message(text="I am still missing your destination point.")
+            return []
+
+        llm = get_llm_controller()
+        maps = get_maps_controller()
+
+        try:
+            source_normalized = llm.normalize_building_name(source_raw)
+            target_normalized = llm.normalize_building_name(target_raw)
+        except Exception as e:
+            logger.error(f"[ActionCompareTravelModes] normalize_building_name failed: {e}")
+            source_normalized = source_raw
+            target_normalized = target_raw
+
+        modes: List[str] = ["walking", "bicycling", "driving", "transit"]
+        summaries: List[Dict[str, Any]] = []
+
+        for mode in modes:
+            try:
+                s = maps.get_route_overview(
+                    origin_name=source_normalized,
+                    destination_name=target_normalized,
+                    mode=mode,
+                )
+
+                # If transit returns only walking (no TRANSIT segment), mark as "not suggested"
+                if mode == "transit" and not s.get("has_transit_segments"):
+                    s["status"] = "NOT_SUGGESTED"
+                    s["note"] = "no_transit_segment"
+
+                summaries.append(s)
+
+            except Exception as e:
+                logger.warning(f"[ActionCompareTravelModes] mode={mode} failed: {e}")
+                summaries.append(
+                    {
+                        "mode": mode,
+                        "status": "ERROR",
+                        "error": str(e),
+                    }
+                )
+
+        # Pick fastest among OK-ish modes (exclude NOT_SUGGESTED transit and ERROR)
+        candidates = [
+            s for s in summaries
+            if (s.get("status") in (None, "", "OK"))
+            and isinstance(s.get("duration_sec"), int)
+            and s.get("duration_sec") > 0
+        ]
+        candidates.sort(key=lambda x: x["duration_sec"])
+        fastest_mode = candidates[0]["mode"] if candidates else None
+
+        try:
+            answer_text = llm.format_travel_mode_comparison(
+                origin_name=source_normalized,
+                destination_name=target_normalized,
+                summaries=summaries,
+                fastest_mode=fastest_mode,
+            )
+        except Exception as e:
+            logger.error(f"[ActionCompareTravelModes] format_travel_mode_comparison failed: {e}")
+            answer_text = "Here are the estimated travel times:\n" + "\n".join(
+                [f"- {s.get('mode')}: {s.get('duration_text') or 'unavailable'}" for s in summaries]
+            )
+
+        # Utter line-by-line (consistent with ActionGetRouteDescription)
+        lines = [ln.strip() for ln in (answer_text or "").split("\n") if ln.strip()]
+        if not lines:
+            dispatcher.utter_message(text=answer_text or "Here are the estimated travel times.")
+        else:
+            for ln in lines:
+                dispatcher.utter_message(text=ln)
+
+        # Helpful: set travel_mode_hint to the fastest, so a follow-up "give me directions" can reuse it.
+        hint_map = {
+            "walking": "walk",
+            "bicycling": "bike",
+            "driving": "car",
+            "transit": "transit",
+        }
+        events: List[EventType] = []
+        if fastest_mode in hint_map:
+            events.append(SlotSet("travel_mode_hint", hint_map[fastest_mode]))
+
+        # Also remember last route context explicitly (since route_description_flow clears early)
+        events.append(SlotSet("prev_source_building_raw", source_raw))
+        events.append(SlotSet("prev_target_building_raw", target_raw))
+
+        return events
+
 class ActionGetRouteDescription(Action):
     """
     Orchestrates:
