@@ -15,7 +15,7 @@ Please note that our entire project resides in the CampusCompass folder. Please 
      OPENAI_API_KEY='your_key_here'
      GOOGLE_MAPS_API_KEY='your_key_here'
      ```
-   - Set this environment variables by running in the terminal
+   - Set this environment variables by running in the terminal (in CampusCompass as root)
      ```
      source .env
      ```
@@ -31,10 +31,6 @@ Please note that our entire project resides in the CampusCompass folder. Please 
      ```    
      uv venv --python 3.11
      ```
-     Activate your python environment by running
-     ```
-     .venv\Scripts\activate
-     ```
      Lastly, to install the dependencies run
      ```
      uv pip install -r requirements.txt
@@ -42,13 +38,25 @@ Please note that our entire project resides in the CampusCompass folder. Please 
 4. **Train and run the Model:**
    - In the terminal, run:
      ```
-     .\run-and-train-dev.ps1
+     .\run-and-train-dev.crossplatform.ps1
      ```
+
+     **macOS/Linux (Codespaces):**
+     ```
+     pwsh ./run-and-train-dev.crossplatform.ps1 
+     ```
+
      The bot should now open in the default browser
 
 5. **Talk to your Bot:**
    - If training is not needed you can run in the terminal
      ```
-     .\run-dev.ps1
+     .\run-dev.crossplatform.ps1
      ```
+
+     **macOS/Linux (Codespaces):**
+     ```
+     pwsh ./run-dev.crossplatform.ps1 
+     ```
+
      The bot should now open in the default browser
